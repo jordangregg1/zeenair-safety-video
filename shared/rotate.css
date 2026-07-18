@@ -1,0 +1,10 @@
+/* ===== ZEENAIR — GLOBAL ROTATION DIRECTION =====
+   Every scene builds portrait content (1080x1920) inside .board, then
+   rotates it into the 1920x1080 landscape .stage that the projector/
+   capture sees. --board-rotate is the ONE place to flip that direction
+   once it's confirmed against the physical projector mount.
+   Every scene links this file, so changing the value here updates
+   the whole show at once. */
+:root {
+  --board-rotate: 90deg;   /* try -90deg if it comes out upside-down/mirrored on the door */
+}

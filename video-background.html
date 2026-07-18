@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Video Background</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+    #scrub-bar {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 10;
+      padding: 16px 20px 12px;
+      background: linear-gradient(to top, rgba(0, 0, 0, 0.5), transparent);
+      opacity: 0;
+      transition: opacity 0.25s ease;
+    }
+    body:hover #scrub-bar,
+    #scrub-bar:focus-within {
+      opacity: 1;
+    }
+    #scrub-bar input[type="range"] {
+      width: 100%;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <video id="bg-video" autoplay loop muted playsinline style="width:100vw;height:100vh;object-fit:cover;">
+    <source src="Zeenair Flight Safety Video.mp4" type="video/mp4">
+  </video>
+  <div id="scrub-bar">
+    <input type="range" id="scrubber" min="0" max="100" step="0.01" value="0">
+  </div>
+  <script>
+    const video = document.getElementById('bg-video');
+    const scrubber = document.getElementById('scrubber');
+    let dragging = false;
+
+    video.addEventListener('loadedmetadata', () => {
+      scrubber.max = video.duration;
+    });
+
+    video.addEventListener('timeupdate', () => {
+      if (!dragging) scrubber.value = video.currentTime;
+    });
+
+    const unmuteOnInteract = () => { video.muted = false; };
+
+    scrubber.addEventListener('pointerdown', () => {
+      dragging = true;
+      unmuteOnInteract();
+    });
+
+    scrubber.addEventListener('input', () => {
+      video.currentTime = scrubber.value;
+    });
+
+    scrubber.addEventListener('pointerup', () => {
+      dragging = false;
+    });
+  </script>
+</body>
+</html>

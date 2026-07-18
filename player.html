@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Zeenair Flight 60 — Player</title>
+<style>
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html,body{
+    width:100%; height:100%;
+    background:#000;
+    overflow:hidden;
+    cursor:none;
+  }
+  body.cfg-open{ cursor:auto; }
+
+  /* 1920x1080 canvas, scaled+letterboxed to fit whatever window/projector output it's shown on */
+  #viewport{
+    position:fixed;
+    top:0; left:0;
+    width:1920px;
+    height:1080px;
+    transform-origin: top left;
+    background:#000;
+  }
+  #screen{
+    width:1920px;
+    height:1080px;
+    border:0;
+    display:block;
+    background:#000;
+    pointer-events:none; /* scenes are display-only; keeps focus/keys on the parent player, never the iframe */
+  }
+
+  #hud{
+    position:fixed;
+    left:12px; bottom:12px;
+    font:12px/1.4 -apple-system, "SF Mono", Menlo, monospace;
+    color:rgba(255,255,255,0.6);
+    background:rgba(0,0,0,0.55);
+    padding:8px 12px;
+    border-radius:4px;
+    z-index:10;
+    pointer-events:none;
+    display:none;
+  }
+  #hud.show{ display:block; }
+
+  /* ---- hidden trigger hotspot: invisible, bottom-right corner, for touch-only devices ---- */
+  #secretSpot{
+    position:fixed;
+    right:0; bottom:0;
+    width:48px; height:48px;
+    z-index:20;
+    background:transparent;
+  }
+
+  /* ---- hidden config panel: never shown on the projected output unless explicitly opened ---- */
+  #cfgOverlay{
+    display:none;
+    position:fixed; inset:0;
+    background:rgba(0,0,0,0.72);
+    z-index:100;
+    align-items:center;
+    justify-content:center;
+    font-family:-apple-system, "Helvetica Neue", Arial, sans-serif;
+  }
+  #cfgOverlay.show{ display:flex; }
+  #cfgPanel{
+    width:640px;
+    max-height:86vh;
+    background:#0d1b2a;
+    border:1px solid rgba(255,255,255,0.15);
+    border-radius:10px;
+    color:#fff;
+    display:flex;
+    flex-direction:column;
+    box-shadow:0 20px 60px rgba(0,0,0,0.6);
+  }
+  #cfgPanel header{
+    padding:16px 20px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    border-bottom:1px solid rgba(255,255,255,0.12);
+  }
+  #cfgPanel header h2{ font-size:16px; letter-spacing:1px; font-weight:700; }
+  #cfgPanel header .hint{ font-size:11px; color:rgba(255,255,255,0.45); margin-top:2px; }
+  #cfgClose{
+    background:none; border:0; color:rgba(255,255,255,0.6);
+    font-size:20px; line-height:1; cursor:pointer; padding:4px 8px;
+  }
+  #cfgClose:hover{ color:#fff; }
+
+  #cfgList{
+    flex:1;
+    overflow-y:auto;
+    padding:12px 16px;
+  }
+  .cfg-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background:rgba(255,255,255,0.04);
+    border:1px solid rgba(255,255,255,0.08);
+    border-radius:6px;
+    padding:8px 10px;
+    margin-bottom:8px;
+    cursor:grab;
+  }
+  .cfg-row.dragging{ opacity:0.35; }
+  .cfg-row.drop-target{ border-color:#F5A623; }
+  .cfg-handle{ color:rgba(255,255,255,0.35); font-size:16px; padding:0 2px; user-select:none; }
+  .cfg-row select{
+    flex:1;
+    background:#0a1520; color:#fff; border:1px solid rgba(255,255,255,0.15);
+    border-radius:4px; padding:6px 8px; font-size:13px;
+  }
+  .cfg-row input[type="number"]{
+    width:64px;
+    background:#0a1520; color:#fff; border:1px solid rgba(255,255,255,0.15);
+    border-radius:4px; padding:6px 8px; font-size:13px; text-align:right;
+  }
+  .cfg-row .cfg-secs{ font-size:12px; color:rgba(255,255,255,0.45); }
+  .cfg-remove{
+    background:none; border:0; color:rgba(232,83,79,0.8); cursor:pointer;
+    font-size:16px; padding:2px 6px;
+  }
+  .cfg-remove:hover{ color:#E8534F; }
+
+  #cfgFooter{
+    padding:14px 16px;
+    border-top:1px solid rgba(255,255,255,0.12);
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  #cfgFooter button, #cfgFooter select{
+    background:#13263b; color:#fff; border:1px solid rgba(255,255,255,0.15);
+    border-radius:5px; padding:8px 12px; font-size:12px; cursor:pointer;
+  }
+  #cfgFooter button:hover{ background:#1a3552; }
+  #cfgFooter .spacer{ flex:1; }
+  #cfgStatus{
+    font-size:11px; color:rgba(255,255,255,0.4); padding:0 16px 12px 16px;
+  }
+</style>
+</head>
+<body>
+
+<div id="viewport">
+  <iframe id="screen" src="about:blank" tabindex="-1"></iframe>
+</div>
+<div id="hud"></div>
+<div id="secretSpot" title=""></div>
+
+<div id="cfgOverlay">
+  <div id="cfgPanel">
+    <header>
+      <div>
+        <h2>SHOW CONFIG</h2>
+        <div class="hint">Drag to reorder &middot; edit seconds &middot; changes apply live</div>
+      </div>
+      <button id="cfgClose">&times;</button>
+    </header>
+    <div id="cfgList"></div>
+    <div id="cfgFooter">
+      <select id="cfgAddSelect"></select>
+      <button id="cfgAddBtn">+ Add scene</button>
+      <div class="spacer"></div>
+      <button id="cfgCopyBtn">Copy as code</button>
+      <button id="cfgResetBtn">Reset to file defaults</button>
+    </div>
+    <div id="cfgStatus"></div>
+  </div>
+</div>
+
+<script src="playlist.js"></script>
+<script>
+(function () {
+  const STORAGE_KEY = "zeenair_playlist_override_v1";
+  // Add new scene files here so they show up in the config panel's "add scene" dropdown.
+  const KNOWN_SCENES = [
+    { path: "scenes/departures.html",   label: "Departures Board" },
+    { path: "scenes/upgrade_list.html", label: "Upgrade List" },
+    { path: "scenes/terminal_map.html", label: "Terminal Map" },
+  ];
+
+  const viewport = document.getElementById("viewport");
+  const screen = document.getElementById("screen");
+  const hud = document.getElementById("hud");
+  const secretSpot = document.getElementById("secretSpot");
+  const cfgOverlay = document.getElementById("cfgOverlay");
+  const cfgList = document.getElementById("cfgList");
+  const cfgAddSelect = document.getElementById("cfgAddSelect");
+  const cfgStatus = document.getElementById("cfgStatus");
+
+  function sceneLabel(path) {
+    const known = KNOWN_SCENES.find(s => s.path === path);
+    return known ? known.label : path;
+  }
+
+  function clonePlaylist(list) {
+    return (list || []).filter(item => item && item.scene && item.duration > 0)
+      .map(item => ({ scene: item.scene, duration: item.duration }));
+  }
+
+  function loadPlaylist() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = clonePlaylist(JSON.parse(raw));
+        if (parsed.length) return parsed;
+      }
+    } catch (e) { /* ignore corrupt storage, fall back to file */ }
+    return clonePlaylist(window.ZEENAIR_PLAYLIST);
+  }
+
+  let playlist = loadPlaylist();
+
+  if (!playlist.length) {
+    document.body.style.cursor = "auto";
+    document.body.innerHTML = '<div style="color:#fff;font:20px sans-serif;padding:40px;">No scenes configured — check playlist.js</div>';
+    return;
+  }
+
+  function savePlaylist() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(playlist));
+  }
+
+  // ---- scale the 1920x1080 canvas to fit the actual window, letterboxed & centered ----
+  function rescale() {
+    const scale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+    const x = (window.innerWidth - 1920 * scale) / 2;
+    const y = (window.innerHeight - 1080 * scale) / 2;
+    viewport.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+  }
+  window.addEventListener("resize", rescale);
+  rescale();
+
+  // ---- sequencer: hard-cut swap of iframe src on a timer, loops forever ----
+  let index = -1;
+  let timer = null;
+  let paused = false;
+
+  function showScene(i) {
+    const item = playlist[i];
+    screen.src = item.scene;
+    hud.textContent = `[${i + 1}/${playlist.length}] ${item.scene} (${item.duration}s)`;
+    clearTimeout(timer);
+    if (!paused) timer = setTimeout(advance, item.duration * 1000);
+  }
+
+  function advance() {
+    index = (index + 1) % playlist.length;
+    showScene(index);
+  }
+
+  advance();
+
+  // ---- live-operation helpers (no visible effect on the projected output) ----
+  // f = toggle fullscreen, d = toggle debug HUD, → = skip to next scene now, c = config panel
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "f") {
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+      else document.exitFullscreen().catch(() => {});
+    } else if (e.key === "d") {
+      hud.classList.toggle("show");
+    } else if (e.key === "ArrowRight") {
+      advance();
+    } else if (e.key === "c") {
+      toggleConfig();
+    } else if (e.key === "Escape" && cfgOverlay.classList.contains("show")) {
+      toggleConfig(false);
+    }
+  });
+  document.addEventListener("dblclick", (e) => {
+    if (cfgOverlay.contains(e.target)) return;
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+  });
+
+  // ---- hidden trigger: 5 taps within 2.5s on the invisible bottom-right corner ----
+  let tapCount = 0;
+  let tapTimer = null;
+  secretSpot.addEventListener("click", () => {
+    tapCount++;
+    clearTimeout(tapTimer);
+    tapTimer = setTimeout(() => { tapCount = 0; }, 2500);
+    if (tapCount >= 5) {
+      tapCount = 0;
+      toggleConfig();
+    }
+  });
+
+  // ================= CONFIG PANEL =================
+  function toggleConfig(force) {
+    const show = typeof force === "boolean" ? force : !cfgOverlay.classList.contains("show");
+    cfgOverlay.classList.toggle("show", show);
+    document.body.classList.toggle("cfg-open", show);
+    paused = show;
+    if (show) {
+      clearTimeout(timer);
+      renderConfig();
+    } else {
+      // resume: re-show current scene fresh with its (possibly edited) duration
+      if (index < 0 || index >= playlist.length) index = 0;
+      showScene(index);
+    }
+  }
+
+  let dragFromIndex = null;
+
+  function renderConfig() {
+    cfgList.innerHTML = "";
+    playlist.forEach((item, i) => {
+      const row = document.createElement("div");
+      row.className = "cfg-row" + (i === index ? "" : "");
+      row.draggable = true;
+      row.dataset.idx = i;
+
+      const select = document.createElement("select");
+      KNOWN_SCENES.forEach(s => {
+        const opt = document.createElement("option");
+        opt.value = s.path;
+        opt.textContent = s.label;
+        if (s.path === item.scene) opt.selected = true;
+        select.appendChild(opt);
+      });
+      if (!KNOWN_SCENES.some(s => s.path === item.scene)) {
+        const opt = document.createElement("option");
+        opt.value = item.scene;
+        opt.textContent = item.scene + " (custom)";
+        opt.selected = true;
+        select.appendChild(opt);
+      }
+      select.addEventListener("change", () => {
+        playlist[i].scene = select.value;
+        savePlaylist();
+        setStatus("Updated scene " + (i + 1) + ".");
+      });
+
+      const durationInput = document.createElement("input");
+      durationInput.type = "number";
+      durationInput.min = "1";
+      durationInput.value = item.duration;
+      durationInput.addEventListener("change", () => {
+        const v = Math.max(1, parseInt(durationInput.value, 10) || 1);
+        durationInput.value = v;
+        playlist[i].duration = v;
+        savePlaylist();
+        setStatus("Updated duration for scene " + (i + 1) + ".");
+      });
+
+      const removeBtn = document.createElement("button");
+      removeBtn.className = "cfg-remove";
+      removeBtn.textContent = "✕";
+      removeBtn.title = "Remove from sequence";
+      removeBtn.addEventListener("click", () => {
+        if (playlist.length <= 1) { setStatus("Can't remove the last scene."); return; }
+        playlist.splice(i, 1);
+        if (index > i) index--;
+        else if (index >= playlist.length) index = playlist.length - 1;
+        savePlaylist();
+        renderConfig();
+        setStatus("Removed scene.");
+      });
+
+      const handle = document.createElement("span");
+      handle.className = "cfg-handle";
+      handle.textContent = "☰";
+
+      const secs = document.createElement("span");
+      secs.className = "cfg-secs";
+      secs.textContent = "sec";
+
+      row.appendChild(handle);
+      row.appendChild(select);
+      row.appendChild(durationInput);
+      row.appendChild(secs);
+      row.appendChild(removeBtn);
+
+      row.addEventListener("dragstart", () => {
+        dragFromIndex = i;
+        row.classList.add("dragging");
+      });
+      row.addEventListener("dragend", () => {
+        row.classList.remove("dragging");
+        Array.from(cfgList.children).forEach(r => r.classList.remove("drop-target"));
+      });
+      row.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        row.classList.add("drop-target");
+      });
+      row.addEventListener("dragleave", () => row.classList.remove("drop-target"));
+      row.addEventListener("drop", (e) => {
+        e.preventDefault();
+        row.classList.remove("drop-target");
+        if (dragFromIndex === null || dragFromIndex === i) return;
+        const moved = playlist.splice(dragFromIndex, 1)[0];
+        const wasCurrent = dragFromIndex === index;
+        playlist.splice(i, 0, moved);
+        // keep the "currently playing" pointer attached to the same item
+        if (wasCurrent) index = i;
+        else {
+          if (dragFromIndex < index && i >= index) index--;
+          else if (dragFromIndex > index && i <= index) index++;
+        }
+        dragFromIndex = null;
+        savePlaylist();
+        renderConfig();
+        setStatus("Reordered sequence.");
+      });
+
+      cfgList.appendChild(row);
+    });
+  }
+
+  function setStatus(msg) {
+    cfgStatus.textContent = msg;
+  }
+
+  KNOWN_SCENES.forEach(s => {
+    const opt = document.createElement("option");
+    opt.value = s.path;
+    opt.textContent = s.label;
+    cfgAddSelect.appendChild(opt);
+  });
+
+  document.getElementById("cfgAddBtn").addEventListener("click", () => {
+    playlist.push({ scene: cfgAddSelect.value, duration: 15 });
+    savePlaylist();
+    renderConfig();
+    setStatus("Added " + sceneLabel(cfgAddSelect.value) + ".");
+  });
+
+  document.getElementById("cfgClose").addEventListener("click", () => toggleConfig(false));
+  cfgOverlay.addEventListener("click", (e) => {
+    if (e.target === cfgOverlay) toggleConfig(false);
+  });
+
+  document.getElementById("cfgResetBtn").addEventListener("click", () => {
+    localStorage.removeItem(STORAGE_KEY);
+    playlist = clonePlaylist(window.ZEENAIR_PLAYLIST);
+    index = -1;
+    renderConfig();
+    setStatus("Reset to playlist.js defaults.");
+  });
+
+  document.getElementById("cfgCopyBtn").addEventListener("click", () => {
+    const lines = playlist.map(p => `  { scene: "${p.scene}", duration: ${p.duration} },`).join("\n");
+    const text = `window.ZEENAIR_PLAYLIST = [\n${lines}\n];`;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(
+        () => setStatus("Copied — paste into playlist.js to make it permanent."),
+        () => fallbackCopy(text)
+      );
+    } else {
+      fallbackCopy(text);
+    }
+  });
+
+  function fallbackCopy(text) {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand("copy"); setStatus("Copied — paste into playlist.js to make it permanent."); }
+    catch (e) { setStatus("Copy failed — select the text manually from the console."); console.log(text); }
+    document.body.removeChild(ta);
+  }
+})();
+</script>
+
+</body>
+</html>
