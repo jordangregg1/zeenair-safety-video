@@ -16,18 +16,40 @@
       right: 0;
       bottom: 0;
       z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: 12px;
       padding: 16px 20px 12px;
       background: linear-gradient(to top, rgba(0, 0, 0, 0.5), transparent);
       opacity: 0;
+      pointer-events: none;
       transition: opacity 0.25s ease;
     }
-    body:hover #scrub-bar,
-    #scrub-bar:focus-within {
+    #scrub-bar.visible {
       opacity: 1;
+      pointer-events: auto;
     }
     #scrub-bar input[type="range"] {
-      width: 100%;
+      flex: 1;
       cursor: pointer;
+    }
+    #play-pause {
+      flex: none;
+      width: 36px;
+      height: 36px;
+      border: none;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.15);
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      line-height: 1;
+    }
+    #play-pause:hover {
+      background: rgba(255, 255, 255, 0.3);
     }
   </style>
 </head>
@@ -36,12 +58,29 @@
     <source src="Zeenair Flight Safety Video.mp4" type="video/mp4">
   </video>
   <div id="scrub-bar">
+    <button id="play-pause" type="button" aria-label="Pause">⏸</button>
     <input type="range" id="scrubber" min="0" max="100" step="0.01" value="0">
   </div>
   <script>
     const video = document.getElementById('bg-video');
     const scrubber = document.getElementById('scrubber');
+    const scrubBar = document.getElementById('scrub-bar');
+    const playPauseBtn = document.getElementById('play-pause');
     let dragging = false;
+    let hideTimer = null;
+
+    const showControls = () => {
+      scrubBar.classList.add('visible');
+      if (hideTimer) clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => {
+        if (!dragging) scrubBar.classList.remove('visible');
+      }, 5000);
+    };
+
+    ['mousemove', 'mousedown', 'touchstart', 'keydown'].forEach(evt => {
+      document.addEventListener(evt, showControls, { passive: true });
+    });
+    showControls();
 
     video.addEventListener('loadedmetadata', () => {
       scrubber.max = video.duration;
@@ -53,9 +92,28 @@
 
     const unmuteOnInteract = () => { video.muted = false; };
 
+    const updatePlayPauseIcon = () => {
+      playPauseBtn.textContent = video.paused ? '▶' : '⏸';
+      playPauseBtn.setAttribute('aria-label', video.paused ? 'Play' : 'Pause');
+    };
+
+    playPauseBtn.addEventListener('click', () => {
+      unmuteOnInteract();
+      if (video.paused) {
+        video.play();
+      } else {
+        video.pause();
+      }
+      showControls();
+    });
+
+    video.addEventListener('play', updatePlayPauseIcon);
+    video.addEventListener('pause', updatePlayPauseIcon);
+
     scrubber.addEventListener('pointerdown', () => {
       dragging = true;
       unmuteOnInteract();
+      showControls();
     });
 
     scrubber.addEventListener('input', () => {
@@ -64,6 +122,7 @@
 
     scrubber.addEventListener('pointerup', () => {
       dragging = false;
+      showControls();
     });
   </script>
 </body>
