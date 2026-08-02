@@ -183,6 +183,7 @@
     { path: "scenes/departures.html",   label: "Departures Board" },
     { path: "scenes/upgrade_list.html", label: "Upgrade List" },
     { path: "scenes/terminal_map.html", label: "Terminal Map" },
+    { path: "scenes/dining.html",       label: "Dining" },
   ];
 
   const viewport = document.getElementById("viewport");
@@ -247,7 +248,32 @@
     screen.src = item.scene;
     hud.textContent = `[${i + 1}/${playlist.length}] ${item.scene} (${item.duration}s)`;
     clearTimeout(timer);
-    if (!paused) timer = setTimeout(advance, item.duration * 1000);
+    if (!paused) timer = setTimeout(() => tryAdvance(0), item.duration * 1000);
+  }
+
+  // A scene's duration is up, but never cut away mid-animation — if the current scene
+  // still has a CSS animation actually running (a row entrance, a status flip, an intro
+  // sequence like the terminal map's icons), wait for it to finish before switching.
+  // Capped so a stray/looping animation can't stall the whole show indefinitely.
+  const ANIMATION_WAIT_POLL_MS = 200;
+  const ANIMATION_WAIT_MAX_MS = 6000;
+
+  function isSceneAnimating() {
+    try {
+      const doc = screen.contentDocument;
+      if (!doc || typeof doc.getAnimations !== "function") return false;
+      return doc.getAnimations().some(a => a.playState === "running");
+    } catch (e) {
+      return false; // can't inspect it (not loaded yet, etc.) — don't block on it
+    }
+  }
+
+  function tryAdvance(waitedMs) {
+    if (isSceneAnimating() && waitedMs < ANIMATION_WAIT_MAX_MS) {
+      timer = setTimeout(() => tryAdvance(waitedMs + ANIMATION_WAIT_POLL_MS), ANIMATION_WAIT_POLL_MS);
+    } else {
+      advance();
+    }
   }
 
   function advance() {
