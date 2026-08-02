@@ -2,15 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Zeenair Departures</title>
+<title>Zeenair Dining</title>
 <link rel="stylesheet" href="../shared/rotate.css">
 <style>
   :root{
-    --navy:#0A2E4D;
+    --navy:#072846;
     --navy-deep:#051b32;
     --amber:#F5A623;
-    --green:#3DDC84;
-    --red:#E8534F;
     --line:rgba(255,255,255,0.12);
     --text-dim:rgba(255,255,255,0.55);
   }
@@ -63,15 +61,8 @@
     justify-content:space-between;
     padding:56px 64px 28px 64px;
   }
-  .logo-wrap img{
-    height:128px;
-    width:auto;
-    display:block;
-    filter:brightness(0) saturate(100%) invert(1);
-  }
-  .header-right{
-    text-align:right;
-  }
+  .logo-wrap img{ height:128px; width:auto; display:block; filter:brightness(0) saturate(100%) invert(1); }
+  .header-right{ text-align:right; }
   .clock{
     font-family:"SF Mono","Consolas","Menlo",monospace;
     font-size:44px;
@@ -85,97 +76,36 @@
     background:linear-gradient(90deg, var(--amber) 0%, rgba(245,166,35,0.15) 100%);
   }
 
-  /* ---------- title block ---------- */
-  .title-block{
-    padding:36px 64px 20px 64px;
-  }
-  .title-block h1{
-    font-size:64px;
-    font-weight:800;
-    letter-spacing:2px;
-  }
+  .title-block{ padding:36px 64px 8px 64px; }
+  .title-block h1{ font-size:60px; font-weight:800; letter-spacing:2px; }
 
-  /* ---------- column headers ---------- */
-  .col-headers{
-    display:grid;
-    grid-template-columns: 150px 150px 1fr 90px 190px;
-    padding:30px 64px 14px 64px;
-    font-size:19px;
-    letter-spacing:3px;
-    color:var(--text-dim);
-    font-weight:700;
-    border-bottom:2px solid var(--line);
-  }
-
-  /* ---------- rows ---------- */
-  .rows{
+  /* ---------- dining ---------- */
+  .dining-wrap{
     flex:1;
-    padding:0 64px;
+    padding:10px 48px 10px 48px;
     display:flex;
-    flex-direction:column;
-  }
-  .row{
-    display:grid;
-    grid-template-columns: 150px 150px 1fr 90px 190px;
     align-items:center;
-    padding:14px 0;
-    border-bottom:1px solid var(--line);
-    font-size:30px;
-    opacity:0;
-    transform:translateY(-14px);
-    animation: rowIn 0.5s ease forwards;
-  }
-  @keyframes rowIn{
-    to{ opacity:1; transform:translateY(0); }
-  }
-
-  .time{
-    font-family:"SF Mono","Consolas","Menlo",monospace;
-    letter-spacing:1px;
-    font-size:26px;
-  }
-  .flight{
-    font-family:"SF Mono","Consolas","Menlo",monospace;
-    color:var(--text-dim);
-    font-size:26px;
-  }
-  .dest{
-    font-weight:600;
-    letter-spacing:0.5px;
-    white-space:nowrap;
+    justify-content:center;
     overflow:hidden;
-    text-overflow:ellipsis;
-    padding-right:20px;
   }
-  .gate{
-    font-family:"SF Mono","Consolas","Menlo",monospace;
-    color:var(--text-dim);
-    font-size:26px;
+  .dining-wrap img{
+    max-width:100%;
+    max-height:100%;
+    width:auto;
+    height:auto;
+    display:block;
+    object-fit:contain;
   }
 
-  /* status flip cell (split-flap style) */
-  .status-cell{ perspective:600px; height:44px; }
-  .status{
-    display:inline-block;
-    font-weight:800;
-    letter-spacing:2px;
-    font-size:24px;
-    transform-style:preserve-3d;
+  /* calm fade + scale in, same treatment as the terminal map's base layer */
+  @keyframes diningIn{
+    from{ opacity:0; transform:scale(0.94); }
+    to{ opacity:1; transform:scale(1); }
   }
-  .status.flipping{
-    animation: flipStatus 0.6s ease-in-out;
+  .dining-wrap img{
+    opacity:0;
+    animation:diningIn 0.8s cubic-bezier(.2,.7,.3,1) forwards;
   }
-  @keyframes flipStatus{
-    0%{ transform:rotateX(0deg); opacity:1; }
-    45%{ transform:rotateX(90deg); opacity:0.2; }
-    55%{ transform:rotateX(90deg); opacity:0.2; }
-    100%{ transform:rotateX(0deg); opacity:1; }
-  }
-  .st-on-time{ color:var(--green); }
-  .st-boarding{ color:var(--amber); }
-  .st-delayed{ color:var(--amber); }
-  .st-cancelled{ color:var(--red); }
-  .st-departed{ color:var(--text-dim); }
 
   /* ---------- footer ---------- */
   .footer{
@@ -185,12 +115,7 @@
     justify-content:center;
     border-top:2px solid var(--line);
   }
-  .footer-tag{
-    font-size:22px;
-    color:var(--amber);
-    letter-spacing:2px;
-    font-weight:700;
-  }
+  .footer-tag{ font-size:22px; color:var(--amber); letter-spacing:2px; font-weight:700; }
 </style>
 </head>
 <body>
@@ -210,18 +135,12 @@
     <div class="divider"></div>
 
     <div class="title-block">
-      <h1>DEPARTURES</h1>
+      <h1>WHAT'S NEW IN T60?</h1>
     </div>
 
-    <div class="col-headers">
-      <div>TIME</div>
-      <div>FLIGHT</div>
-      <div>DESTINATION</div>
-      <div>GATE</div>
-      <div>STATUS</div>
+    <div class="dining-wrap">
+      <img src="../assets/dining_gelato.png" alt="Zeenair Lounge gelato menu">
     </div>
-
-    <div class="rows" id="rows"></div>
 
     <div class="footer">
       <div class="footer-tag">60 YEARS OF EXCELLENCE</div>
@@ -231,153 +150,6 @@
 </div>
 
 <script>
-  // ===== EDIT THIS LIST to customize the travel history =====
-  // Every trip from the 60-year timeline, in order. Flight number = the year it happened.
-  // Destinations are always an actual city (country/region-only mentions were mapped to
-  // their biggest city; landmark-only mentions were mapped to the city they're in/near).
-  const RAW_TRIPS = [
-    [1966,"LONDON"], [1967,"MUMBAI"], [1969,"AMSTERDAM"], [1969,"BRIDGETOWN"],
-    [1970,"WILLEMSTAD"], [1970,"PORT OF SPAIN"], [1970,"AMSTERDAM"], [1970,"ANAHEIM"],
-    [1971,"PORT OF SPAIN"], [1972,"NIAGARA FALLS"], [1972,"LONDON"], [1973,"GLASGOW"],
-    [1974,"LAGOS"], [1974,"AGRA"], [1974,"BEIRUT"], [1974,"ZURICH"],
-    [1974,"PARIS"], [1974,"SHANGHAI"], [1974,"TOKYO"], [1974,"COTONOU"],
-    [1975,"LONDON"], [1976,"NEWARK"], [1976,"PANCHGANI"], [1977,"ZURICH"],
-    [1978,"FREMONT"], [1978,"HONG KONG"], [1984,"DELHI"], [1984,"MUMBAI"],
-    [1987,"MUMBAI"], [1987,"HONG KONG"], [1987,"HONOLULU"], [1988,"SAN DIEGO"],
-    [1988,"NARITA"], [1989,"HONOLULU"], [1990,"CABO SAN LUCAS"], [1992,"FREMONT"],
-    [1992,"ORLANDO"], [1992,"NASSAU"], [1996,"JAIPUR"], [1996,"DELHI"],
-    [1996,"AGRA"], [1997,"NEWPORT BEACH"], [1997,"AVALON"], [1999,"BOSTON"],
-    [2000,"AMSTERDAM"], [2000,"PARIS"], [2002,"MUMBAI"], [2004,"BOSTON"],
-    [2007,"ROME"], [2007,"FLORENCE"], [2007,"VENICE"], [2008,"ORLANDO"],
-    [2012,"ANCHORAGE"], [2014,"ENSENADA"], [2016,"BARCELONA"], [2016,"LONDON"],
-    [2016,"PARIS"], [2017,"KINGSTON"], [2017,"GEORGE TOWN"], [2017,"COZUMEL"],
-    [2018,"LONDON"], [2018,"CABO SAN LUCAS"], [2018,"ISLA MUJERES"], [2019,"CANCUN"],
-    [2020,"SAN FRANCISCO"], [2020,"LAS VEGAS"], [2020,"LAS VEGAS"], [2021,"AUSTIN"],
-    [2021,"WACO"], [2021,"CABO SAN LUCAS"], [2021,"CABO SAN LUCAS"], [2021,"SAN FRANCISCO"],
-    [2022,"PROVIDENCIALES"], [2022,"CABO SAN LUCAS"], [2022,"MIAMI"], [2022,"LAS VEGAS"],
-    [2022,"CHICAGO"], [2022,"NASHVILLE"], [2022,"PALM SPRINGS"], [2023,"HONOLULU"],
-    [2023,"COZUMEL"], [2023,"PUERTO VALLARTA"], [2023,"NEW YORK"], [2023,"SEATTLE"],
-    [2023,"OCEAN CITY"], [2023,"CABO SAN LUCAS"], [2023,"NASHVILLE"], [2024,"MUMBAI"],
-    [2024,"CABO SAN LUCAS"], [2024,"ENSENADA"], [2024,"CABO SAN LUCAS"], [2024,"BELIZE CITY"],
-    [2024,"FLAGSTAFF"], [2024,"NEW YORK"], [2024,"BOSTON"], [2024,"AUSTIN"],
-    [2025,"SINGAPORE"], [2025,"MEXICO CITY"], [2025,"CABO SAN LUCAS"], [2025,"PARIS"],
-    [2025,"VALLETTA"], [2025,"NEW ORLEANS"], [2026,"FIRA"], [2026,"SCOTTSDALE"],
-    [2026,"LAS VEGAS"], [2026,"PUERTO VALLARTA"], [2026,"CABO SAN LUCAS"], [2026,"CHICAGO"],
-    [2026,"MADRID"], [2026,"NAPA"], [2026,"LONG BEACH"], [2026,"MEXICO CITY"],
-    [2027,"LAS VEGAS"], [2027,"MONTEREY"], [2027,"CASTRIES"], [2027,"SYDNEY"],
-    [2028,"TOKYO"],
-  ];
-
-  const GATES = ["A1","A2","A3","A4","A5","A6","A7","A8","B1","B2","B3","B4","B5","B6","B7","B8",
-                 "C1","C2","C3","C4","C5","C6","C7","C8","D1","D2","D3","D4","D5","D6","D7","D8"];
-  // Weighted so most rows read DEPARTED/ON TIME, with BOARDING/DELAYED/CANCELLED sprinkled in for variety.
-  const STATUS_POOL = ["DEPARTED","DEPARTED","DEPARTED","ON TIME","ON TIME","ON TIME","BOARDING","BOARDING","DELAYED","CANCELLED"];
-  const PAGE_SIZE = 19;      // matches the upgrade list's larger row font — fewer rows fit than before, without clipping the footer
-  const PAGE_INTERVAL = 12000; // ms each page stays up before flipping to the next
-  const STORAGE_KEY = "zeenair_departures_page";
-  const TIME_STORAGE_KEY = "zeenair_departures_clock";
-
-  function randomStatus(){
-    return STATUS_POOL[Math.floor(Math.random() * STATUS_POOL.length)];
-  }
-
-  // Running clock (minutes since 7:00) shared across every page render, so the first
-  // time on a new page continues after the last time on the previous page instead of
-  // resetting back to 7:00 each flip. Persisted so it also carries over a scene reload.
-  let clockMin = parseInt(localStorage.getItem(TIME_STORAGE_KEY), 10);
-  let clockStarted = Number.isFinite(clockMin);
-  if (!clockStarted) clockMin = 0;
-
-  function formatClockMin(min){
-    const totalMinOfDay = ((420 + min) % 1440 + 1440) % 1440; // 420 = 7:00 baseline, wraps a 24h clock
-    const h = Math.floor(totalMinOfDay / 60);
-    const m = totalMinOfDay % 60;
-    const h12 = ((h + 11) % 12) + 1;
-    return `${h12}:${String(m).padStart(2, "0")}`;
-  }
-
-  // Generates ascending board-style times with irregular gaps between flights (4-22 min),
-  // instead of a perfectly even interval, which read as too mechanical/fake.
-  function makeTimes(count){
-    const times = [];
-    for (let i = 0; i < count; i++){
-      if (clockStarted) clockMin += 4 + Math.floor(Math.random() * 19);
-      clockStarted = true;
-      times.push(formatClockMin(clockMin));
-    }
-    localStorage.setItem(TIME_STORAGE_KEY, String(clockMin));
-    return times;
-  }
-
-  // Shuffles the gate list so a page's gate assignments look random with no repeats,
-  // rather than cycling A1, A2, A3... in visible order.
-  function shuffledGates(){
-    const arr = GATES.slice();
-    for (let i = arr.length - 1; i > 0; i--){
-      const j = Math.floor(Math.random() * (i + 1));
-      [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    return arr;
-  }
-
-  const FLIGHTS = RAW_TRIPS.map(([year, dest]) => ({
-    flight: "ZA " + String(year % 100).padStart(3, "0"),
-    dest,
-    status: randomStatus(),
-  }));
-
-  const pages = [];
-  for (let i = 0; i < FLIGHTS.length; i += PAGE_SIZE) pages.push(FLIGHTS.slice(i, i + PAGE_SIZE));
-
-  const rowsEl = document.getElementById("rows");
-
-  // Resume on whatever page we left off at, instead of restarting, when the sequencer
-  // cuts away mid-cycle and later comes back around to this scene.
-  let currentPage = parseInt(localStorage.getItem(STORAGE_KEY), 10);
-  if (!Number.isInteger(currentPage) || currentPage < 0 || currentPage >= pages.length) currentPage = 0;
-
-  function statusClass(status){
-    return "st-" + status.toLowerCase().replace(/\s+/g, "-");
-  }
-
-  function buildRow(f, index){
-    const row = document.createElement("div");
-    row.className = "row";
-    row.style.animationDelay = (index * 0.08) + "s";
-    row.dataset.status = f.status;
-    row.innerHTML = `
-      <div class="time">${f.time}</div>
-      <div class="flight">${f.flight}</div>
-      <div class="dest">${f.dest}</div>
-      <div class="gate">${f.gate}</div>
-      <div class="status-cell"><span class="status ${statusClass(f.status)}">${f.status}</span></div>
-    `;
-    return row;
-  }
-
-  function renderPage(pageIndex){
-    rowsEl.innerHTML = "";
-    const pageFlights = pages[pageIndex];
-    const times = makeTimes(pageFlights.length);
-    const gates = shuffledGates();
-    pageFlights.forEach((f, i) => {
-      rowsEl.appendChild(buildRow({ ...f, time: times[i], gate: gates[i % gates.length] }, i));
-    });
-  }
-
-  function savePage(){
-    localStorage.setItem(STORAGE_KEY, String(currentPage));
-  }
-
-  renderPage(currentPage);
-  savePage();
-  setInterval(() => {
-    currentPage = (currentPage + 1) % pages.length;
-    renderPage(currentPage);
-    savePage();
-  }, PAGE_INTERVAL);
-
-  // ---- clock ----
   function updateClock(){
     const now = new Date();
     let h = now.getHours();
@@ -389,27 +161,6 @@
   }
   setInterval(updateClock, 1000);
   updateClock();
-
-  // ---- periodic status changes (split-flap flip animation) ----
-  const CYCLE = ["ON TIME","BOARDING","DELAYED"]; // CANCELLED/DEPARTED intentionally rare/sticky
-  function randomStatusChange(){
-    const rows = Array.from(rowsEl.querySelectorAll(".row"));
-    const candidates = rows.filter(r => r.dataset.status === "ON TIME" || r.dataset.status === "BOARDING");
-    if(candidates.length === 0) return;
-    const row = candidates[Math.floor(Math.random() * candidates.length)];
-    const span = row.querySelector(".status");
-    const next = CYCLE[Math.floor(Math.random() * CYCLE.length)];
-    if (next === row.dataset.status) return;
-
-    span.classList.add("flipping");
-    setTimeout(() => {
-      span.textContent = next;
-      span.className = "status flipping " + statusClass(next);
-      row.dataset.status = next;
-    }, 270);
-    setTimeout(() => span.classList.remove("flipping"), 600);
-  }
-  setInterval(randomStatusChange, 3600);
 </script>
 
 </body>

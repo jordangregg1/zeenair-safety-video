@@ -6,4 +6,5 @@ window.ZEENAIR_PLAYLIST = [
   { scene: "scenes/departures.html",   duration: 25 },
   { scene: "scenes/upgrade_list.html", duration: 25 },
   { scene: "scenes/terminal_map.html", duration: 25 },
+  { scene: "scenes/dining.html",       duration: 25 },
 ];
