@@ -1,4 +1,4 @@
-// Records the Zeenair Flight 60 player (../player.html) to an MP4 loop.
+// Records the Zeenair Flight 60 player (../terminal-board.html) to an MP4 loop.
 // Usage: npm run record  [-- --duration=300]   (duration in seconds, default 300 = 5 min)
 //
 // Uses the full "puppeteer" package (bundles a Chromium build for whatever
@@ -15,7 +15,7 @@ const { PuppeteerScreenRecorder } = require("puppeteer-screen-recorder");
 
 const durationArg = process.argv.find(a => a.startsWith("--duration="));
 const DURATION_SEC = durationArg ? Number(durationArg.split("=")[1]) : 300; // ~5 min loop
-const PLAYER_URL = `file://${path.join(__dirname, "..", "player.html")}`;
+const PLAYER_URL = `file://${path.join(__dirname, "..", "terminal-board.html")}`;
 const OUTPUT_PATH = path.join(__dirname, "zeenair-flight60-loop.mp4");
 
 (async () => {

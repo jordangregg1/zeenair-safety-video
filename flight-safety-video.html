@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Video Background</title>
+  <title>Flight Safety Video</title>
   <style>
     html, body {
       margin: 0;
@@ -54,7 +54,7 @@
   </style>
 </head>
 <body>
-  <video id="bg-video" autoplay loop muted playsinline style="width:100vw;height:100vh;object-fit:cover;">
+  <video id="bg-video" autoplay loop playsinline style="width:100vw;height:100vh;object-fit:cover;">
     <source src="Zeenair Flight Safety Video.mov">
   </video>
   <div id="scrub-bar">
@@ -84,6 +84,20 @@
 
     video.addEventListener('loadedmetadata', () => {
       scrubber.max = video.duration;
+    });
+
+    // Browsers block autoplay with sound unless the user already interacted
+    // with the page. Try unmuted first; if that's rejected, fall back to a
+    // muted autoplay and unmute on the first interaction anywhere on the page.
+    video.play().catch(() => {
+      video.muted = true;
+      video.play();
+      const unmuteOnFirstInteraction = () => {
+        video.muted = false;
+      };
+      ['click', 'touchstart', 'keydown'].forEach(evt => {
+        document.addEventListener(evt, unmuteOnFirstInteraction, { once: true, passive: true });
+      });
     });
 
     video.addEventListener('timeupdate', () => {
