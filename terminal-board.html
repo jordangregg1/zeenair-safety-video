@@ -183,6 +183,7 @@
     { path: "scenes/departures.html",   label: "Departures Board" },
     { path: "scenes/upgrade_list.html", label: "Upgrade List" },
     { path: "scenes/terminal_map.html", label: "Terminal Map" },
+    { path: "scenes/lounge.html",       label: "The Zeenair Lounge" },
   ];
 
   const viewport = document.getElementById("viewport");
@@ -255,10 +256,15 @@
     showScene(index);
   }
 
+  function goBack() {
+    index = (index - 1 + playlist.length) % playlist.length;
+    showScene(index);
+  }
+
   advance();
 
   // ---- live-operation helpers (no visible effect on the projected output) ----
-  // f = toggle fullscreen, d = toggle debug HUD, → = skip to next scene now, c = config panel
+  // f = toggle fullscreen, d = toggle debug HUD, ← / → = skip to prev/next scene now, c = config panel
   document.addEventListener("keydown", (e) => {
     if (e.key === "f") {
       if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
@@ -267,6 +273,8 @@
       hud.classList.toggle("show");
     } else if (e.key === "ArrowRight") {
       advance();
+    } else if (e.key === "ArrowLeft") {
+      goBack();
     } else if (e.key === "c") {
       toggleConfig();
     } else if (e.key === "Escape" && cfgOverlay.classList.contains("show")) {
