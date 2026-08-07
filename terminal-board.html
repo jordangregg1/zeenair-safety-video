@@ -30,6 +30,11 @@
     background:#000;
     pointer-events:none; /* scenes are display-only; keeps focus/keys on the parent player, never the iframe */
   }
+  /* mirrors only the projected scene content (for rear-projection onto frosted glass); UI stays untouched since it lives outside #screen.
+     scenes render portrait content rotated 90deg to fill this landscape canvas, so a flip on the canvas's Y axis becomes a left/right flip for the viewer once rotated */
+  #screen.mirrored{
+    transform: scaleY(-1);
+  }
 
   #hud{
     position:fixed;
@@ -166,6 +171,9 @@
     <div id="cfgFooter">
       <select id="cfgAddSelect"></select>
       <button id="cfgAddBtn">+ Add scene</button>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.8);padding:0 4px;">
+        <input type="checkbox" id="cfgMirrorToggle"> Mirror screen
+      </label>
       <div class="spacer"></div>
       <button id="cfgCopyBtn">Copy as code</button>
       <button id="cfgResetBtn">Reset to file defaults</button>
@@ -179,6 +187,7 @@
 <script>
 (function () {
   const STORAGE_KEY = "zeenair_playlist_override_v1";
+  const MIRROR_KEY = "zeenair_terminal_mirror_v1";
   // Add new scene files here so they show up in the config panel's "add scene" dropdown.
   const KNOWN_SCENES = [
     { path: "scenes/departures.html",   label: "Departures Board" },
@@ -194,7 +203,18 @@
   const cfgOverlay = document.getElementById("cfgOverlay");
   const cfgList = document.getElementById("cfgList");
   const cfgAddSelect = document.getElementById("cfgAddSelect");
+  const cfgMirrorToggle = document.getElementById("cfgMirrorToggle");
   const cfgStatus = document.getElementById("cfgStatus");
+
+  let mirrored = localStorage.getItem(MIRROR_KEY) === "1";
+  screen.classList.toggle("mirrored", mirrored);
+  cfgMirrorToggle.checked = mirrored;
+  cfgMirrorToggle.addEventListener("change", () => {
+    mirrored = cfgMirrorToggle.checked;
+    localStorage.setItem(MIRROR_KEY, mirrored ? "1" : "0");
+    screen.classList.toggle("mirrored", mirrored);
+    setStatus(mirrored ? "Mirror screen on." : "Mirror screen off.");
+  });
 
   function sceneLabel(path) {
     const known = KNOWN_SCENES.find(s => s.path === path);
