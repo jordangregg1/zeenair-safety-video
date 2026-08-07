@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Zeenair Experiences</title>
   <style>
+    * { box-sizing: border-box; }
     html, body {
       margin: 0;
       padding: 0;
-      height: 100%;
-      background: #0b1626;
+      min-height: 100%;
       color: #fff;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
     }
@@ -18,46 +18,148 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      height: 100vh;
-      gap: 24px;
+      min-height: 100vh;
+      padding: 64px 24px;
+      background:
+        radial-gradient(circle at 15% -10%, rgba(245, 166, 35, 0.16), transparent 45%),
+        radial-gradient(circle at 85% 110%, rgba(35, 120, 245, 0.14), transparent 50%),
+        linear-gradient(180deg, #0b1626 0%, #08111d 100%);
+      overflow-x: hidden;
     }
-    h1 {
-      margin: 0 0 16px;
-      font-size: 20px;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: #f5a623;
-    }
-    .links {
+    .brand {
       display: flex;
       flex-direction: column;
-      gap: 16px;
-      width: 260px;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 56px;
     }
-    a.button {
-      display: block;
-      padding: 16px 20px;
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 8px;
+    .brand .mark {
+      font-size: 13px;
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.4);
+      font-weight: 600;
+    }
+    h1 {
+      margin: 0;
+      font-size: 40px;
+      letter-spacing: 0.02em;
+      font-weight: 700;
+      background: linear-gradient(135deg, #fff 30%, #f5a623 120%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .subtitle {
+      margin: 4px 0 0;
+      font-size: 15px;
+      color: rgba(255, 255, 255, 0.45);
+    }
+    .links {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 28px;
+      width: 100%;
+      max-width: 1000px;
+    }
+    a.card {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 36px 32px;
+      min-height: 200px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 20px;
       color: #fff;
       text-decoration: none;
-      text-align: center;
-      font-size: 16px;
-      transition: background 0.2s ease, border-color 0.2s ease;
+      overflow: hidden;
+      transition: transform 0.25s ease, background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
     }
-    a.button:hover {
-      background: rgba(255, 255, 255, 0.18);
-      border-color: rgba(255, 255, 255, 0.4);
+    a.card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(245, 166, 35, 0.16), transparent 60%);
+      opacity: 0;
+      transition: opacity 0.25s ease;
+    }
+    a.card:hover {
+      transform: translateY(-6px);
+      background: rgba(255, 255, 255, 0.09);
+      border-color: rgba(245, 166, 35, 0.5);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(245, 166, 35, 0.15);
+    }
+    a.card:hover::before { opacity: 1; }
+    a.card:active { transform: translateY(-2px); }
+    .icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      background: rgba(245, 166, 35, 0.15);
+      font-size: 28px;
+      flex-shrink: 0;
+    }
+    .card-title {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
+    .card-desc {
+      font-size: 15px;
+      line-height: 1.4;
+      color: rgba(255, 255, 255, 0.55);
+    }
+    .card-arrow {
+      margin-top: auto;
+      align-self: flex-end;
+      font-size: 20px;
+      color: #f5a623;
+      opacity: 0;
+      transform: translateX(-6px);
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+    a.card:hover .card-arrow {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    @media (max-width: 640px) {
+      h1 { font-size: 30px; }
+      a.card { min-height: 160px; padding: 28px 24px; }
     }
   </style>
 </head>
 <body>
-  <h1>Zeenair Experiences</h1>
+  <div class="brand">
+    <span class="mark">Zeenair</span>
+    <h1>Experiences</h1>
+    <p class="subtitle">Choose a display to launch</p>
+  </div>
   <div class="links">
-    <a class="button" href="terminal-board.html">Terminal Board</a>
-    <a class="button" href="flight-safety-video.html">Flight Safety Video</a>
-    <a class="button" href="london-loop.html">London Video Loop</a>
+    <a class="card" href="terminal-board.html">
+      <div class="icon">🛫</div>
+      <div class="card-title">Terminal Board</div>
+      <div class="card-desc">Rotating departures, terminal map, and lounge scenes for the gate display.</div>
+      <div class="card-arrow">&rarr;</div>
+    </a>
+    <a class="card" href="flight-safety-video.html">
+      <div class="icon">🦺</div>
+      <div class="card-title">Flight Safety Video</div>
+      <div class="card-desc">The full in-flight safety briefing, ready to play end to end.</div>
+      <div class="card-arrow">&rarr;</div>
+    </a>
+    <a class="card" href="london-loop.html">
+      <div class="icon">🎞️</div>
+      <div class="card-title">London Video Loop</div>
+      <div class="card-desc">Ambient London footage on a shuffled, continuously looping playlist.</div>
+      <div class="card-arrow">&rarr;</div>
+    </a>
   </div>
 </body>
 </html>
