@@ -30,6 +30,11 @@
       opacity:1;
       z-index:2;
     }
+    /* Projected onto the back of a screen, so mirror the content left-to-right
+       (default on) — the viewer on the front sees it read normally. */
+    .stage-video.mirrored{
+      transform:scaleX(-1);
+    }
 
     #hud{
       position:fixed;
@@ -186,6 +191,11 @@
     }
     #cfgFooter button:hover{ background:#1a3552; }
     #cfgFooter .spacer{ flex:1; }
+    #cfgFooter label.cfg-check{
+      display:flex; align-items:center; gap:6px;
+      font-size:12px; color:rgba(255,255,255,0.8);
+      cursor:pointer; padding:8px 4px;
+    }
     #cfgStatus{
       font-size:11px; color:rgba(255,255,255,0.4); padding:0 16px 12px 16px;
     }
@@ -223,6 +233,10 @@
       <select id="cfgAddSelect"></select>
       <button id="cfgAddBtn">+ Add step</button>
       <button id="cfgShuffleBtn">Reshuffle now</button>
+      <label class="cfg-check">
+        <input type="checkbox" id="cfgMirrorToggle">
+        Mirror content
+      </label>
       <div class="spacer"></div>
       <button id="cfgCopyBtn">Copy as code</button>
       <button id="cfgResetBtn">Reset to file defaults</button>
@@ -236,6 +250,7 @@
 <script>
 (function () {
   const STORAGE_KEY = "zeenair_london_cycle_override_v1";
+  const MIRROR_KEY = "zeenair_london_mirror_v1";
   // Add new pools to london-playlist.js, then label them here so they show up
   // in the config panel's step dropdowns.
   const POOL_LABELS = {
@@ -259,6 +274,23 @@
   const cfgList = document.getElementById("cfgList");
   const cfgAddSelect = document.getElementById("cfgAddSelect");
   const cfgStatus = document.getElementById("cfgStatus");
+  const cfgMirrorToggle = document.getElementById("cfgMirrorToggle");
+
+  // Projected onto the back of a screen, so mirror by default — anything
+  // other than the literal string "false" counts as enabled.
+  let mirrored = localStorage.getItem(MIRROR_KEY) !== "false";
+  function applyMirrored() {
+    videoA.classList.toggle("mirrored", mirrored);
+    videoB.classList.toggle("mirrored", mirrored);
+  }
+  cfgMirrorToggle.checked = mirrored;
+  applyMirrored();
+  cfgMirrorToggle.addEventListener("change", () => {
+    mirrored = cfgMirrorToggle.checked;
+    localStorage.setItem(MIRROR_KEY, mirrored ? "true" : "false");
+    applyMirrored();
+    setStatus(mirrored ? "Mirroring content for rear projection." : "Mirroring off.");
+  });
 
   function poolLabel(pool) {
     return POOL_LABELS[pool] || pool;
