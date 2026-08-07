@@ -195,6 +195,34 @@
       font-size: 10px;
       font-weight: 500;
     }
+    #restart-button {
+      position: fixed;
+      left: 50%;
+      top: 78%;
+      transform: translate(-50%, -50%) scale(0.96);
+      z-index: 15;
+      padding: 32px 64px;
+      border: none;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.95);
+      color: #0a2540;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 36px;
+      font-weight: 600;
+      white-space: nowrap;
+      cursor: pointer;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+    #restart-button.visible {
+      opacity: 0.75;
+      pointer-events: auto;
+      transform: translate(-50%, -50%) scale(1);
+    }
+    #restart-button:hover {
+      background: #fff;
+    }
   </style>
 </head>
 <body>
@@ -217,6 +245,7 @@
     </svg>
     <div id="reboot-timer-text"></div>
   </div>
+  <button id="restart-button" type="button">Start Flight Safety Video</button>
   <div id="config-overlay">
     <div id="config-panel">
       <h2>Settings</h2>
@@ -420,10 +449,21 @@
       rebootAnimFrame = requestAnimationFrame(tick);
     };
 
+    const restartButton = document.getElementById('restart-button');
+
+    const restartVideo = () => {
+      if (loopTimer) clearTimeout(loopTimer);
+      stopRebootTimer();
+      restartButton.classList.remove('visible');
+      video.currentTime = 0;
+      video.play();
+    };
+
     video.addEventListener('ended', () => {
       const delay = getLoopDelay();
       if (loopTimer) clearTimeout(loopTimer);
       if (delay > 0) startRebootTimer(delay);
+      restartButton.classList.add('visible');
       loopTimer = setTimeout(() => {
         video.currentTime = 0;
         video.play();
@@ -431,6 +471,8 @@
     });
 
     video.addEventListener('play', stopRebootTimer);
+    video.addEventListener('play', () => restartButton.classList.remove('visible'));
+    restartButton.addEventListener('click', restartVideo);
 
     rebootTimerToggle.addEventListener('change', () => {
       setRebootTimerEnabled(rebootTimerToggle.checked);
