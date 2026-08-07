@@ -148,6 +148,15 @@
   #cfgStatus{
     font-size:11px; color:rgba(255,255,255,0.4); padding:0 16px 12px 16px;
   }
+
+  #cfgTimeRow{ display:flex; align-items:center; gap:6px; }
+  #cfgTimeRow .cfg-time-label{ font-size:12px; color:rgba(255,255,255,0.7); padding:0 2px; }
+  .cfg-time-btn.active{ background:#F5A623; color:#0d1b2a; border-color:#F5A623; }
+  #cfgMockTimeInput{
+    display:none;
+    background:#0a1520; color:#fff; border:1px solid rgba(255,255,255,0.15);
+    border-radius:4px; padding:6px 8px; font-size:12px;
+  }
 </style>
 </head>
 <body>
@@ -174,6 +183,12 @@
       <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.8);padding:0 4px;">
         <input type="checkbox" id="cfgMirrorToggle"> Mirror screen
       </label>
+      <div id="cfgTimeRow">
+        <span class="cfg-time-label">Time:</span>
+        <button type="button" id="cfgTimeLiveBtn" class="cfg-time-btn">Live</button>
+        <button type="button" id="cfgTimeMockBtn" class="cfg-time-btn">Mock</button>
+        <input type="time" id="cfgMockTimeInput">
+      </div>
       <div class="spacer"></div>
       <button id="cfgCopyBtn">Copy as code</button>
       <button id="cfgResetBtn">Reset to file defaults</button>
@@ -188,6 +203,7 @@
 (function () {
   const STORAGE_KEY = "zeenair_playlist_override_v1";
   const MIRROR_KEY = "zeenair_terminal_mirror_v1";
+  const TIME_KEY = "zeenair_time_override_v1"; // shared with shared/time-override.js (read by every scene)
   // Add new scene files here so they show up in the config panel's "add scene" dropdown.
   const KNOWN_SCENES = [
     { path: "scenes/departures.html",   label: "Departures Board" },
@@ -204,7 +220,66 @@
   const cfgList = document.getElementById("cfgList");
   const cfgAddSelect = document.getElementById("cfgAddSelect");
   const cfgMirrorToggle = document.getElementById("cfgMirrorToggle");
+  const cfgTimeLiveBtn = document.getElementById("cfgTimeLiveBtn");
+  const cfgTimeMockBtn = document.getElementById("cfgTimeMockBtn");
+  const cfgMockTimeInput = document.getElementById("cfgMockTimeInput");
   const cfgStatus = document.getElementById("cfgStatus");
+
+  // ---- time override: Live (real clock) or Mock (a fixed clock the operator sets,
+  // which then keeps ticking forward normally) — shared with every scene via localStorage ----
+  function loadTimeOverride() {
+    try {
+      const raw = localStorage.getItem(TIME_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && (parsed.mode === "live" || parsed.mode === "mock")) return parsed;
+      }
+    } catch (e) { /* ignore corrupt storage, fall back to live */ }
+    return { mode: "live", offsetMs: 0 };
+  }
+
+  let timeOverride = loadTimeOverride();
+
+  function saveTimeOverride() {
+    localStorage.setItem(TIME_KEY, JSON.stringify(timeOverride));
+  }
+
+  function renderTimeControls() {
+    cfgTimeLiveBtn.classList.toggle("active", timeOverride.mode === "live");
+    cfgTimeMockBtn.classList.toggle("active", timeOverride.mode === "mock");
+    cfgMockTimeInput.style.display = timeOverride.mode === "mock" ? "inline-block" : "none";
+    if (timeOverride.mode === "mock" && !cfgMockTimeInput.value) {
+      const preview = new Date(Date.now() + (timeOverride.offsetMs || 0));
+      cfgMockTimeInput.value = `${String(preview.getHours()).padStart(2, "0")}:${String(preview.getMinutes()).padStart(2, "0")}`;
+    }
+  }
+
+  function applyMockTimeFromInput() {
+    if (!cfgMockTimeInput.value) return;
+    const [h, m] = cfgMockTimeInput.value.split(":").map(Number);
+    const target = new Date();
+    target.setHours(h, m, 0, 0);
+    timeOverride = { mode: "mock", offsetMs: target.getTime() - Date.now() };
+    saveTimeOverride();
+    setStatus("Mock time set to " + cfgMockTimeInput.value + ".");
+  }
+
+  cfgTimeLiveBtn.addEventListener("click", () => {
+    timeOverride = { mode: "live", offsetMs: 0 };
+    saveTimeOverride();
+    renderTimeControls();
+    setStatus("Time source: Live.");
+  });
+
+  cfgTimeMockBtn.addEventListener("click", () => {
+    if (timeOverride.mode !== "mock") timeOverride = { mode: "mock", offsetMs: 0 };
+    renderTimeControls(); // fills in a default mock time (now) if none set yet
+    applyMockTimeFromInput();
+  });
+
+  cfgMockTimeInput.addEventListener("input", applyMockTimeFromInput);
+
+  renderTimeControls();
 
   let mirrored = localStorage.getItem(MIRROR_KEY) === "1";
   screen.classList.toggle("mirrored", mirrored);

@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <title>Zeenair Departures</title>
 <link rel="stylesheet" href="../shared/rotate.css">
+<script src="../shared/time-override.js"></script>
 <style>
   :root{
     --navy:#0A2E4D;
@@ -74,9 +75,17 @@
   }
   .clock{
     font-family:"SF Mono","Consolas","Menlo",monospace;
-    font-size:44px;
+    font-size:53px;
     letter-spacing:2px;
     color:var(--text-dim);
+  }
+  .mock-badge{
+    display:none;
+    margin-top:6px;
+    font-size:16px;
+    font-weight:800;
+    letter-spacing:2px;
+    color:var(--amber);
   }
 
   .divider{
@@ -172,6 +181,7 @@
   }
   .st-on-time{ color:var(--green); }
   .st-boarding{ color:var(--amber); }
+  .st-boarding-soon{ color:var(--amber); }
   .st-delayed{ color:var(--amber); }
   .st-cancelled{ color:var(--red); }
   .st-departed{ color:var(--text-dim); }
@@ -185,11 +195,12 @@
     border-top:2px solid var(--line);
   }
   .footer-tag{
-    font-size:22px;
+    font-size:44px;
     color:var(--amber);
-    letter-spacing:2px;
+    letter-spacing:4px;
     font-weight:700;
   }
+
 </style>
 </head>
 <body>
@@ -203,6 +214,7 @@
       </div>
       <div class="header-right">
         <div class="clock" id="clock">7:42 PM</div>
+        <div class="mock-badge" id="mock-badge">MOCK TIME</div>
       </div>
     </div>
 
@@ -231,18 +243,29 @@
 
 <script>
   // ===== EDIT THIS LIST to customize flights =====
-  // status options: ON TIME, BOARDING, DELAYED, CANCELLED, DEPARTED
+  // status is computed automatically from the real clock:
+  //   scheduled time has passed      -> DEPARTED
+  //   next upcoming flight           -> BOARDING
+  //   the flight after that          -> BOARDING SOON
+  //   everything further out         -> ON TIME
   const FLIGHTS = [
-    { time:"7:00",  flight:"ZA 001", dest:"THE GOOD OLD DAYS",   gate:"A1",  status:"DEPARTED" },
-    { time:"7:15",  flight:"ZA 060", dest:"PARADISE",            gate:"Z60", status:"ON TIME" },
-    { time:"7:30",  flight:"ZA 214", dest:"PALM SPRINGS",        gate:"B4",  status:"BOARDING" },
-    { time:"7:45",  flight:"ZA 077", dest:"LAKE TAHOE",          gate:"C2",  status:"ON TIME" },
-    { time:"8:00",  flight:"ZA 143", dest:"NAPA VALLEY",         gate:"A7",  status:"DELAYED" },
-    { time:"8:10",  flight:"ZA 305", dest:"CABO SAN LUCAS",      gate:"D1",  status:"ON TIME" },
-    { time:"8:25",  flight:"ZA 099", dest:"THE DANCE FLOOR",     gate:"B1",  status:"BOARDING" },
-    { time:"8:40",  flight:"ZA 462", dest:"MEMORY LANE",         gate:"C5",  status:"ON TIME" },
-    { time:"8:55",  flight:"ZA 188", dest:"MARGARITAVILLE",      gate:"A3",  status:"CANCELLED" },
-    { time:"9:10",  flight:"ZA 620", dest:"ANOTHER 60 YEARS",    gate:"Z60", status:"ON TIME" },
+    { time:"7:02",  flight:"ZA 001", dest:"NEW YORK",            gate:"A1"  },
+    { time:"7:16",  flight:"ZA 066", dest:"LONDON",              gate:"Z60" },
+    { time:"7:29",  flight:"ZA 214", dest:"PALM SPRINGS",        gate:"B4"  },
+    { time:"7:43",  flight:"ZA 084", dest:"MUMBAI",              gate:"C2"  },
+    { time:"7:58",  flight:"ZA 007", dest:"ROME",                gate:"A7"  },
+    { time:"8:11",  flight:"ZA 305", dest:"CABO SAN LUCAS",      gate:"D1"  },
+    { time:"8:27",  flight:"ZA 016", dest:"BARCELONA",           gate:"B1"  },
+    { time:"8:42",  flight:"ZA 020", dest:"ALASKA",              gate:"C5"  },
+    { time:"8:56",  flight:"ZA 025", dest:"SINGAPORE",           gate:"A3"  },
+    { time:"9:09",  flight:"ZA 620", dest:"GREECE",              gate:"Z60" },
+    { time:"9:24",  flight:"ZA 092", dest:"NASHVILLE",           gate:"B2"  },
+    { time:"9:38",  flight:"ZA 031", dest:"AMSTERDAM",           gate:"C7"  },
+    { time:"9:53",  flight:"ZA 852", dest:"HONG KONG",           gate:"D3"  },
+    { time:"10:07", flight:"ZA 118", dest:"CHICAGO",             gate:"A5"  },
+    { time:"10:22", flight:"ZA 197", dest:"MALTA",               gate:"B6"  },
+    { time:"10:38", flight:"ZA 233", dest:"NEW ORLEANS",         gate:"C1"  },
+    { time:"10:53", flight:"ZA 960", dest:"AUSTRALIA",           gate:"Z60" },
   ];
 
   const rowsEl = document.getElementById("rows");
@@ -251,56 +274,116 @@
     return "st-" + status.toLowerCase().replace(/\s+/g, "-");
   }
 
+  // ---- time source: real clock, or a party "mock" clock set from the SHOW CONFIG
+  // panel in terminal-board.html (press "c" during the show) — see shared/time-override.js
+  function getNow(){
+    return window.ZeenairTime.getNow();
+  }
+
+  // flight board times are all PM (evening departures)
+  function scheduledDate(timeStr){
+    const [h, m] = timeStr.split(":").map(Number);
+    const d = getNow();
+    d.setHours(h === 12 ? 12 : h + 12, m, 0, 0);
+    return d;
+  }
+
   function buildRow(f, index){
     const row = document.createElement("div");
     row.className = "row";
     row.style.animationDelay = (index * 0.08) + "s";
-    row.dataset.status = f.status;
+    row.dataset.time = f.time;
+    row.dataset.status = "";
     row.innerHTML = `
       <div class="time">${f.time}</div>
       <div class="flight">${f.flight}</div>
       <div class="dest">${f.dest}</div>
       <div class="gate">${f.gate}</div>
-      <div class="status-cell"><span class="status ${statusClass(f.status)}">${f.status}</span></div>
+      <div class="status-cell"><span class="status"></span></div>
     `;
     return row;
   }
 
   FLIGHTS.forEach((f, i) => rowsEl.appendChild(buildRow(f, i)));
 
+  // ---- derive every row's status from the real wall-clock time ----
+  let delayedKeys = new Set(); // dataset.time values currently randomly marked DELAYED
+
+  function refreshStatuses(){
+    const now = getNow();
+    const rows = Array.from(rowsEl.querySelectorAll(".row")); // already in chronological order
+    const upcoming = rows.filter(row => now < scheduledDate(row.dataset.time));
+    const boarding = upcoming.slice(0, 2);
+    const restUpcoming = upcoming.slice(2);
+
+    // drop delayed picks that are no longer eligible (boarded/departed)
+    const restKeys = new Set(restUpcoming.map(row => row.dataset.time));
+    delayedKeys.forEach(key => { if(!restKeys.has(key)) delayedKeys.delete(key); });
+
+    // 25% of remaining flights (rounded up) show DELAYED, only once 3+ remain
+    const desiredDelayedCount = restUpcoming.length >= 3 ? Math.ceil(restUpcoming.length * 0.25) : 0;
+
+    if(delayedKeys.size < desiredDelayedCount){
+      const candidates = restUpcoming.filter(row => !delayedKeys.has(row.dataset.time));
+      while(delayedKeys.size < desiredDelayedCount && candidates.length){
+        const idx = Math.floor(Math.random() * candidates.length);
+        delayedKeys.add(candidates[idx].dataset.time);
+        candidates.splice(idx, 1);
+      }
+    } else if(delayedKeys.size > desiredDelayedCount){
+      const excess = Array.from(delayedKeys);
+      while(excess.length > desiredDelayedCount){
+        const idx = Math.floor(Math.random() * excess.length);
+        delayedKeys.delete(excess[idx]);
+        excess.splice(idx, 1);
+      }
+    }
+
+    rows.forEach(row => {
+      let status;
+      if(now >= scheduledDate(row.dataset.time)) status = "DEPARTED";
+      else if(boarding.includes(row)) status = "BOARDING";
+      else if(delayedKeys.has(row.dataset.time)) status = "DELAYED";
+      else status = "ON TIME";
+
+      if(status === row.dataset.status) return;
+
+      const span = row.querySelector(".status");
+      const isFirstPaint = row.dataset.status === "";
+      span.textContent = status;
+      span.className = "status " + statusClass(status);
+      if(!isFirstPaint){
+        span.classList.add("flipping");
+        setTimeout(() => span.classList.remove("flipping"), 600);
+      }
+      row.dataset.status = status;
+    });
+  }
+  setInterval(refreshStatuses, 1000);
+  refreshStatuses();
+
   // ---- clock ----
+  const mockBadge = document.getElementById("mock-badge");
+
   function updateClock(){
-    const now = new Date();
+    const now = getNow();
     let h = now.getHours();
     const m = now.getMinutes().toString().padStart(2,"0");
     const s = now.getSeconds().toString().padStart(2,"0");
     const ampm = h >= 12 ? "PM" : "AM";
     h = h % 12; if(h === 0) h = 12;
     document.getElementById("clock").textContent = `${h}:${m}:${s} ${ampm}`;
+    mockBadge.style.display = window.ZeenairTime.isMock() ? "inline" : "none";
   }
   setInterval(updateClock, 1000);
   updateClock();
 
-  // ---- periodic status changes (split-flap flip animation) ----
-  const CYCLE = ["ON TIME","BOARDING","DELAYED"]; // CANCELLED/DEPARTED intentionally rare/sticky
-  function randomStatusChange(){
-    const rows = Array.from(rowsEl.querySelectorAll(".row"));
-    const candidates = rows.filter(r => r.dataset.status === "ON TIME" || r.dataset.status === "BOARDING");
-    if(candidates.length === 0) return;
-    const row = candidates[Math.floor(Math.random() * candidates.length)];
-    const span = row.querySelector(".status");
-    const next = CYCLE[Math.floor(Math.random() * CYCLE.length)];
-    if (next === row.dataset.status) return;
-
-    span.classList.add("flipping");
-    setTimeout(() => {
-      span.textContent = next;
-      span.className = "status flipping " + statusClass(next);
-      row.dataset.status = next;
-    }, 270);
-    setTimeout(() => span.classList.remove("flipping"), 600);
-  }
-  setInterval(randomStatusChange, 3600);
+  // the SHOW CONFIG panel (terminal-board.html, press "c" during the show) writes
+  // its Live/Mock choice to localStorage; pick up changes as soon as they land.
+  window.addEventListener("storage", () => {
+    refreshStatuses();
+    updateClock();
+  });
 </script>
 
 </body>
