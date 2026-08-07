@@ -99,7 +99,7 @@
   /* ---------- column headers ---------- */
   .col-headers{
     display:grid;
-    grid-template-columns: 140px 1fr 190px 300px;
+    grid-template-columns: 1fr 300px;
     padding:30px 64px 14px 64px;
     font-size:20px;
     letter-spacing:3px;
@@ -117,7 +117,7 @@
   }
   .row{
     display:grid;
-    grid-template-columns: 140px 1fr 190px 300px;
+    grid-template-columns: 1fr 300px;
     align-items:center;
     padding:19px 0;
     border-bottom:1px solid var(--line);
@@ -127,34 +127,32 @@
     animation: rowIn 0.5s ease forwards;
   }
   .row.honor{
-    background:linear-gradient(90deg, rgba(245,166,35,0.14), transparent 70%);
+    margin:0 -64px;
+    padding:19px 64px;
+    background:rgba(245,166,35,0.14);
     border-bottom:1px solid rgba(245,166,35,0.4);
   }
   @keyframes rowIn{
     to{ opacity:1; transform:translateY(0); }
   }
 
-  .prio{
-    font-family:"SF Mono","Consolas","Menlo",monospace;
-    color:var(--text-dim);
-    font-size:26px;
-  }
-  .honor .prio{ color:var(--amber); }
-
   .pax{
+    position:relative;
     font-weight:600;
     letter-spacing:0.5px;
+    padding-right:20px;
+  }
+  .pax-name{
+    display:block;
     white-space:nowrap;
     overflow:hidden;
     text-overflow:ellipsis;
-    padding-right:20px;
   }
-  .pax .star{ color:var(--amber); margin-right:10px; }
-
-  .seat{
-    font-family:"SF Mono","Consolas","Menlo",monospace;
-    color:var(--text-dim);
-    font-size:26px;
+  .pax .star{
+    position:absolute;
+    right:100%;
+    color:var(--amber);
+    margin-right:16px;
   }
 
   /* status flip cell */
@@ -176,10 +174,8 @@
     55%{ transform:rotateX(90deg); opacity:0.2; }
     100%{ transform:rotateX(0deg); opacity:1; }
   }
-  .st-waitlisted{ color:var(--amber); }
-  .st-confirmed{ color:var(--green); }
-  .st-cleared{ color:var(--green); }
-  .st-denied{ color:var(--red); }
+  .st-pending{ color:var(--amber); }
+  .st-checked-in{ color:var(--green); }
   .st-upgraded{ color:var(--amber); }
 
   /* ---------- footer ---------- */
@@ -219,9 +215,7 @@
     </div>
 
     <div class="col-headers">
-      <div>PRIO</div>
       <div>PASSENGER</div>
-      <div>SEAT</div>
       <div>STATUS</div>
     </div>
 
@@ -236,28 +230,30 @@
 
 <script>
   // ===== EDIT THIS LIST to customize passengers =====
-  // status options: WAITLISTED, CONFIRMED, CLEARED, DENIED, UPGRADED
+  // status options: PENDING, CHECKED IN (ZEENA keeps UPGRADED)
   const PASSENGERS = [
-    { prio:"01", name:"ZEENA", seat:"1A", status:"UPGRADED", honor:true },
-    { prio:"02", name:"MARTINEZ/D MS", seat:"2A", status:"CONFIRMED" },
-    { prio:"03", name:"CHEN/R MR",     seat:"2C", status:"CONFIRMED" },
-    { prio:"04", name:"PATEL/S MR",    seat:"3A", status:"WAITLISTED" },
-    { prio:"05", name:"OKAFOR/J MS",   seat:"3B", status:"WAITLISTED" },
-    { prio:"06", name:"NGUYEN/T MR",   seat:"4A", status:"WAITLISTED" },
-    { prio:"07", name:"SULLIVAN/K MS", seat:"4D", status:"CLEARED" },
-    { prio:"08", name:"KOWALSKI/M MR", seat:"5A", status:"WAITLISTED" },
-    { prio:"09", name:"ABARA/L MS",    seat:"5C", status:"DENIED" },
-    { prio:"10", name:"FONTAINE/P MR", seat:"6A", status:"WAITLISTED" },
-    { prio:"11", name:"YAMAMOTO/E MS", seat:"6B", status:"CONFIRMED" },
-    { prio:"12", name:"RUIZ/A MR",     seat:"7A", status:"WAITLISTED" },
-    { prio:"13", name:"BENNETT/C MS",  seat:"7D", status:"WAITLISTED" },
-    { prio:"14", name:"HARTLEY/G MR",  seat:"8A", status:"CLEARED" },
+    { name:"ZEENA",         status:"UPGRADED", honor:true },
+    { name:"NEBEL",         status:"CHECKED IN" },
+    { name:"ADVANI",        status:"PENDING" },
+    { name:"MIRCHANDANI",   status:"CHECKED IN" },
+    { name:"DEZAN",         status:"PENDING" },
+    { name:"REYNOLDS",      status:"PENDING" },
+    { name:"THADANI",       status:"CHECKED IN" },
+    { name:"CHRISTENSON",   status:"PENDING" },
+    { name:"POLLARD",       status:"CHECKED IN" },
+    { name:"BENEDICT",      status:"PENDING" },
+    { name:"BRETWEISER",    status:"PENDING" },
+    { name:"MORIARTY",      status:"CHECKED IN" },
+    { name:"FUNDERBURG",    status:"PENDING" },
+    { name:"WALLACE",       status:"PENDING" },
+    { name:"CHUN",          status:"CHECKED IN" },
+    { name:"GREGG",         status:"PENDING" },
   ];
 
   const rowsEl = document.getElementById("rows");
 
   function statusClass(status){
-    return "st-" + status.toLowerCase();
+    return "st-" + status.toLowerCase().replace(/\s+/g, "-");
   }
 
   function buildRow(p, index){
@@ -266,15 +262,25 @@
     row.style.animationDelay = (index * 0.09) + "s";
     row.dataset.status = p.status;
     row.innerHTML = `
-      <div class="prio">${p.prio}</div>
-      <div class="pax">${p.honor ? '<span class="star">&#9733;</span>' : ''}${p.name}</div>
-      <div class="seat">${p.seat}</div>
+      <div class="pax">${p.honor ? '<span class="star">&#9733;</span>' : ''}<span class="pax-name">${p.name}</span></div>
       <div class="status-cell"><span class="status ${statusClass(p.status)}">${p.status}</span></div>
     `;
     return row;
   }
 
-  PASSENGERS.forEach((p, i) => rowsEl.appendChild(buildRow(p, i)));
+  function shuffle(arr){
+    for(let i = arr.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  const honorPassenger = PASSENGERS.find(p => p.honor);
+  const shuffledOthers = shuffle(PASSENGERS.filter(p => !p.honor));
+  const displayOrder = [honorPassenger, ...shuffledOthers];
+
+  displayOrder.forEach((p, i) => rowsEl.appendChild(buildRow(p, i)));
 
   // ---- clock ----
   function updateClock(){
@@ -290,14 +296,13 @@
   updateClock();
 
   // ---- periodic status changes (flip animation) ----
-  const CYCLE = ["WAITLISTED","CONFIRMED","CLEARED"]; // DENIED intentionally rare/sticky
   function randomStatusChange(){
     const rows = Array.from(rowsEl.querySelectorAll(".row:not(.honor)"));
-    const candidates = rows.filter(r => r.dataset.status === "WAITLISTED");
+    const candidates = rows.filter(r => r.dataset.status === "PENDING");
     if(candidates.length === 0) return;
     const row = candidates[Math.floor(Math.random() * candidates.length)];
     const span = row.querySelector(".status");
-    const next = Math.random() < 0.75 ? "CONFIRMED" : "CLEARED";
+    const next = "CHECKED IN";
 
     span.classList.add("flipping");
     setTimeout(() => {
