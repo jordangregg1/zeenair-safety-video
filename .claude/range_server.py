@@ -8,6 +8,15 @@ import os
 import re
 import sys
 from http.server import HTTPServer, SimpleHTTPRequestHandler
+from socketserver import ThreadingMixIn
+
+
+class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
+    # A plain HTTPServer handles one request at a time, so a long-running
+    # video download (e.g. a preloaded next clip) blocks every other
+    # request — including seeks on the video actually being watched —
+    # until it finishes. Each request gets its own thread instead.
+    daemon_threads = True
 
 
 class RangeHTTPRequestHandler(SimpleHTTPRequestHandler):
@@ -88,7 +97,7 @@ def main():
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
     directory = sys.argv[2] if len(sys.argv) > 2 else "."
     os.chdir(directory)
-    server = HTTPServer(("0.0.0.0", port), RangeHTTPRequestHandler)
+    server = ThreadingHTTPServer(("0.0.0.0", port), RangeHTTPRequestHandler)
     server.serve_forever()
 
 

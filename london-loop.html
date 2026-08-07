@@ -5,41 +5,830 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>London Video Loop</title>
   <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      background: #0b1626;
-      color: #fff;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    *{ margin:0; padding:0; box-sizing:border-box; }
+    html,body{
+      width:100%; height:100%;
+      background:#000;
+      overflow:hidden;
+      cursor:none;
     }
-    .placeholder {
-      text-align: center;
+    body.cfg-open, body.controls-visible{ cursor:auto; }
+
+    /* ---- A/B video pair: the idle one preloads the next clip so the swap
+           at the end of a segment is instant instead of flashing black ---- */
+    .stage-video{
+      position:fixed;
+      inset:0;
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      background:#000;
+      opacity:0;
+      z-index:1;
     }
-    h1 {
-      font-size: 20px;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: #f5a623;
-      margin-bottom: 8px;
+    .stage-video.active{
+      opacity:1;
+      z-index:2;
     }
-    p {
-      color: rgba(255, 255, 255, 0.6);
+
+    #hud{
+      position:fixed;
+      left:12px; bottom:60px;
+      font:12px/1.5 -apple-system, "SF Mono", Menlo, monospace;
+      color:rgba(255,255,255,0.6);
+      background:rgba(0,0,0,0.55);
+      padding:8px 12px;
+      border-radius:4px;
+      z-index:10;
+      pointer-events:none;
+      display:none;
+      white-space:pre;
     }
-    a {
-      color: #f5a623;
+    #hud.show{ display:block; }
+
+    /* ---- playback controls, auto-hiding (same behaviour as the safety video) ---- */
+    #scrub-bar{
+      position:fixed;
+      left:0; right:0; bottom:0;
+      z-index:15;
+      display:flex;
+      align-items:center;
+      gap:12px;
+      padding:16px 20px 12px;
+      background:linear-gradient(to top, rgba(0,0,0,0.5), transparent);
+      opacity:0;
+      pointer-events:none;
+      transition:opacity 0.25s ease;
+    }
+    #scrub-bar.visible{
+      opacity:1;
+      pointer-events:auto;
+    }
+    #scrub-bar input[type="range"]{
+      flex:1;
+      cursor:pointer;
+    }
+    #play-pause, #settings-toggle{
+      flex:none;
+      width:36px;
+      height:36px;
+      border:none;
+      border-radius:50%;
+      background:rgba(255,255,255,0.15);
+      color:#fff;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:16px;
+      line-height:1;
+    }
+    #play-pause:hover, #settings-toggle:hover{
+      background:rgba(255,255,255,0.3);
+    }
+    #settings-toggle svg{
+      width:18px;
+      height:18px;
+      fill:currentColor;
+    }
+    #now-playing{
+      flex:none;
+      font:11px/1 -apple-system, "SF Mono", Menlo, monospace;
+      color:rgba(255,255,255,0.6);
+      letter-spacing:0.04em;
+    }
+
+    /* ---- config panel: never on the projected output unless explicitly opened ---- */
+    #cfgOverlay{
+      display:none;
+      position:fixed; inset:0;
+      background:rgba(0,0,0,0.72);
+      z-index:100;
+      align-items:center;
+      justify-content:center;
+      font-family:-apple-system, "Helvetica Neue", Arial, sans-serif;
+    }
+    #cfgOverlay.show{ display:flex; }
+    #cfgPanel{
+      width:640px;
+      max-height:86vh;
+      background:#0d1b2a;
+      border:1px solid rgba(255,255,255,0.15);
+      border-radius:10px;
+      color:#fff;
+      display:flex;
+      flex-direction:column;
+      box-shadow:0 20px 60px rgba(0,0,0,0.6);
+    }
+    #cfgPanel header{
+      padding:16px 20px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      border-bottom:1px solid rgba(255,255,255,0.12);
+    }
+    #cfgPanel header h2{ font-size:16px; letter-spacing:1px; font-weight:700; }
+    #cfgPanel header .hint{ font-size:11px; color:rgba(255,255,255,0.45); margin-top:2px; }
+    #cfgClose{
+      background:none; border:0; color:rgba(255,255,255,0.6);
+      font-size:20px; line-height:1; cursor:pointer; padding:4px 8px;
+    }
+    #cfgClose:hover{ color:#fff; }
+
+    #cfgList{
+      flex:1;
+      overflow-y:auto;
+      padding:12px 16px;
+    }
+    .cfg-row{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      background:rgba(255,255,255,0.04);
+      border:1px solid rgba(255,255,255,0.08);
+      border-radius:6px;
+      padding:8px 10px;
+      margin-bottom:8px;
+      cursor:grab;
+    }
+    .cfg-row.dragging{ opacity:0.35; }
+    .cfg-row.drop-target{ border-color:#F5A623; }
+    .cfg-row.playing{ border-color:rgba(245,166,35,0.5); }
+    .cfg-handle{ color:rgba(255,255,255,0.35); font-size:16px; padding:0 2px; user-select:none; }
+    .cfg-row select{
+      flex:1;
+      background:#0a1520; color:#fff; border:1px solid rgba(255,255,255,0.15);
+      border-radius:4px; padding:6px 8px; font-size:13px;
+    }
+    .cfg-row input[type="number"]{
+      width:64px;
+      background:#0a1520; color:#fff; border:1px solid rgba(255,255,255,0.15);
+      border-radius:4px; padding:6px 8px; font-size:13px; text-align:right;
+    }
+    .cfg-row .cfg-secs{ font-size:12px; color:rgba(255,255,255,0.45); }
+
+    .cfg-remove{
+      background:none; border:0; color:rgba(232,83,79,0.8); cursor:pointer;
+      font-size:16px; padding:2px 6px;
+    }
+    .cfg-remove:hover{ color:#E8534F; }
+
+    #cfgFooter{
+      padding:14px 16px;
+      border-top:1px solid rgba(255,255,255,0.12);
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+    #cfgFooter button, #cfgFooter select{
+      background:#13263b; color:#fff; border:1px solid rgba(255,255,255,0.15);
+      border-radius:5px; padding:8px 12px; font-size:12px; cursor:pointer;
+    }
+    #cfgFooter button:hover{ background:#1a3552; }
+    #cfgFooter .spacer{ flex:1; }
+    #cfgStatus{
+      font-size:11px; color:rgba(255,255,255,0.4); padding:0 16px 12px 16px;
     }
   </style>
 </head>
 <body>
-  <div class="placeholder">
-    <h1>London Video Loop</h1>
-    <p>Coming soon.</p>
-    <p><a href="index.html">&larr; Back</a></p>
+
+<video id="video-a" class="stage-video active" playsinline preload="auto"></video>
+<video id="video-b" class="stage-video" playsinline preload="auto"></video>
+
+<div id="hud"></div>
+
+<div id="scrub-bar">
+  <button id="play-pause" type="button" aria-label="Pause">⏸</button>
+  <input type="range" id="scrubber" min="0" max="100" step="0.01" value="0">
+  <span id="now-playing"></span>
+  <button id="settings-toggle" type="button" aria-label="Settings">
+    <svg viewBox="0 0 24 24">
+      <path d="M19.14 12.94c.04-.31.06-.62.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.61-.22l-2.39.96a7.4 7.4 0 0 0-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96a.5.5 0 0 0-.61.22L2.62 8.84a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.07.63-.07.94s.02.63.06.94L2.74 14.52a.5.5 0 0 0-.12.64l1.92 3.32c.14.24.42.32.61.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.26.42.5.42h3.84c.24 0 .45-.18.5-.42l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.24.1.47 0 .61-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58ZM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Z"/>
+    </svg>
+  </button>
+</div>
+
+<div id="cfgOverlay">
+  <div id="cfgPanel">
+    <header>
+      <div>
+        <h2>LONDON LOOP CONFIG</h2>
+        <div class="hint">Drag to reorder &middot; 0 sec plays the clip in full &middot; changes apply live</div>
+      </div>
+      <button id="cfgClose">&times;</button>
+    </header>
+    <div id="cfgList"></div>
+    <div id="cfgFooter">
+      <select id="cfgAddSelect"></select>
+      <button id="cfgAddBtn">+ Add step</button>
+      <button id="cfgShuffleBtn">Reshuffle now</button>
+      <div class="spacer"></div>
+      <button id="cfgCopyBtn">Copy as code</button>
+      <button id="cfgResetBtn">Reset to file defaults</button>
+    </div>
+    <div id="cfgStatus"></div>
   </div>
-  <script src="shared/back-to-menu.js"></script>
+</div>
+
+<script src="london-playlist.js"></script>
+<script src="shared/back-to-menu.js"></script>
+<script>
+(function () {
+  const STORAGE_KEY = "zeenair_london_cycle_override_v1";
+  // Add new pools to london-playlist.js, then label them here so they show up
+  // in the config panel's step dropdowns.
+  const POOL_LABELS = {
+    streets: "London Streets",
+    bigben:  "Big Ben",
+    train:   "Underground Train",
+  };
+
+  const POOLS = window.ZEENAIR_LONDON_POOLS || {};
+  const poolNames = Object.keys(POOLS).filter(name => (POOLS[name] || []).length > 0);
+
+  const videoA = document.getElementById("video-a");
+  const videoB = document.getElementById("video-b");
+  const hud = document.getElementById("hud");
+  const scrubBar = document.getElementById("scrub-bar");
+  const scrubber = document.getElementById("scrubber");
+  const playPauseBtn = document.getElementById("play-pause");
+  const nowPlaying = document.getElementById("now-playing");
+  const settingsToggle = document.getElementById("settings-toggle");
+  const cfgOverlay = document.getElementById("cfgOverlay");
+  const cfgList = document.getElementById("cfgList");
+  const cfgAddSelect = document.getElementById("cfgAddSelect");
+  const cfgStatus = document.getElementById("cfgStatus");
+
+  function poolLabel(pool) {
+    return POOL_LABELS[pool] || pool;
+  }
+
+  function clipName(src) {
+    return src.split("/").pop();
+  }
+
+  // ---- cycle config: one entry per step of a single pass through the loop ----
+  function cloneCycle(list) {
+    return (list || [])
+      .filter(item => item && poolNames.indexOf(item.pool) !== -1)
+      .map(item => ({
+        pool: item.pool,
+        maxSeconds: Math.max(0, parseInt(item.maxSeconds, 10) || 0),
+      }));
+  }
+
+  function loadCycle() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = cloneCycle(JSON.parse(raw));
+        if (parsed.length) return parsed;
+      }
+    } catch (e) { /* ignore corrupt storage, fall back to file */ }
+    return cloneCycle(window.ZEENAIR_LONDON_CYCLE);
+  }
+
+  let cycle = loadCycle();
+
+  if (!poolNames.length || !cycle.length) {
+    document.body.style.cursor = "auto";
+    document.body.innerHTML = '<div style="color:#fff;font:20px sans-serif;padding:40px;">No clips configured — check london-playlist.js</div>';
+    return;
+  }
+
+  function saveCycle() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(cycle));
+  }
+
+  // ================= SCHEDULING =================
+  // Every pool is shuffled exactly once, at load. After that the running order
+  // is fixed for the whole browsing session: advancing just walks those frozen
+  // decks, so the sequence is pre-scheduled up front rather than re-rolled at
+  // each transition. Streets (10) and Big Ben (9) are coprime-ish, so the
+  // pairings drift and don't repeat for 90 passes.
+  const decks = {};
+  const cursors = {};
+
+  function shuffle(list) {
+    const out = list.slice();
+    for (let i = out.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = out[i];
+      out[i] = out[j];
+      out[j] = tmp;
+    }
+    return out;
+  }
+
+  function shuffleAllPools() {
+    poolNames.forEach(name => {
+      decks[name] = shuffle(POOLS[name]);
+      cursors[name] = 0;
+    });
+  }
+  shuffleAllPools();
+
+  function nextFromPool(pool) {
+    const deck = decks[pool];
+    const src = deck[cursors[pool] % deck.length];
+    cursors[pool]++;
+    return src;
+  }
+
+  // The schedule is the materialised running order. It's extended lazily but
+  // never re-randomised, so going back replays exactly what just played and the
+  // HUD can show what's genuinely coming up.
+  const schedule = [];
+  let position = -1;
+
+  function ensureScheduled(count) {
+    while (schedule.length < count) {
+      const prev = schedule[schedule.length - 1];
+      const step = prev ? (prev.step + 1) % cycle.length : 0;
+      const item = cycle[step] || cycle[0];
+      schedule.push({ step: step, pool: item.pool, src: nextFromPool(item.pool) });
+    }
+  }
+
+  // Drop the not-yet-played tail so edits to the cycle take effect from here on.
+  // Rewinding the cursors keeps the decks in step — the discarded clips go back
+  // on top of their deck rather than being silently skipped.
+  function truncateSchedule() {
+    while (schedule.length > position + 1) {
+      const dropped = schedule.pop();
+      if (cursors[dropped.pool] > 0) cursors[dropped.pool]--;
+    }
+  }
+
+  // ================= PLAYBACK =================
+  let activeEl = videoA;
+  let idleEl = videoB;
+  let muted = false;
+  let paused = false;
+
+  function applyMuted() {
+    videoA.muted = muted;
+    videoB.muted = muted;
+  }
+
+  function armUnmuteOnInteraction() {
+    const unmute = () => { muted = false; applyMuted(); };
+    ["click", "touchstart", "keydown"].forEach(evt => {
+      document.addEventListener(evt, unmute, { once: true, passive: true });
+    });
+  }
+
+  // Browsers block autoplay with sound unless the user already interacted with
+  // the page. Try unmuted first; if that's rejected, fall back to muted and
+  // unmute on the first interaction anywhere on the page.
+  function playActive() {
+    const p = activeEl.play();
+    if (p && p.catch) {
+      p.catch(() => {
+        muted = true;
+        applyMuted();
+        activeEl.play().catch(() => {});
+        armUnmuteOnInteraction();
+      });
+    }
+  }
+
+  function loadInto(el, src) {
+    if (el.dataset.src === src) return;
+    el.dataset.src = src;
+    el.src = src;
+    el.load();
+  }
+
+  // Don't start downloading the next ~23MB clip the instant a segment begins —
+  // on the local dev server that download runs for most of the ~2 minute
+  // segment and competes with any seek/scrub request on the clip actually
+  // being watched. Wait until near the end of the current clip instead, which
+  // still leaves the swap instant but stops it from starving playback.
+  const PRELOAD_LEAD_SECONDS = 12;
+  let preloadedForPosition = -1;
+
+  function preloadNext() {
+    if (preloadedForPosition === position) return;
+    ensureScheduled(position + 2);
+    const next = schedule[position + 1];
+    if (next) {
+      loadInto(idleEl, next.src);
+      preloadedForPosition = position;
+    }
+  }
+
+  function segmentEndSeconds(el) {
+    const item = currentStepConfig();
+    const duration = el.duration || 0;
+    if (item && item.maxSeconds > 0) return Math.min(item.maxSeconds, duration || item.maxSeconds);
+    return duration;
+  }
+
+  function playAt(p) {
+    if (p < 0) p = 0;
+    ensureScheduled(p + 1);
+    const entry = schedule[p];
+    position = p;
+
+    // The idle element has usually already buffered this clip; if not (a jump,
+    // a reshuffle) loading it here is the same cost as a plain src swap.
+    loadInto(idleEl, entry.src);
+    const incoming = idleEl;
+    const outgoing = activeEl;
+
+    incoming.classList.add("active");
+    outgoing.classList.remove("active");
+    activeEl = incoming;
+    idleEl = outgoing;
+
+    outgoing.pause();
+    applyMuted();
+    if (activeEl.readyState > 0) {
+      activeEl.currentTime = 0;
+      // The incoming clip was preloaded, so its loadedmetadata already fired
+      // while it was the idle element — resize the scrubber for it here.
+      scrubber.max = activeEl.duration || 0;
+    }
+    scrubber.value = 0;
+    if (!paused) playActive();
+
+    preloadedForPosition = -1;
+    updateNowPlaying();
+    updateHud();
+  }
+
+  function advance() { playAt(position + 1); }
+  function goBack()  { playAt(position - 1); }
+
+  function currentStepConfig() {
+    const entry = schedule[position];
+    if (!entry) return null;
+    return cycle[entry.step] || null;
+  }
+
+  // Both video elements share these handlers; events from the outgoing element
+  // are ignored so a segment can never advance twice.
+  [videoA, videoB].forEach(el => {
+    el.addEventListener("ended", () => {
+      if (el !== activeEl || paused) return;
+      advance();
+    });
+    el.addEventListener("timeupdate", () => {
+      if (el !== activeEl) return;
+      if (!dragging) scrubber.value = el.currentTime;
+      // A max-seconds override is enforced off currentTime rather than a timer
+      // so it survives pausing and scrubbing without extra bookkeeping.
+      const item = currentStepConfig();
+      if (!paused && item && item.maxSeconds > 0 && el.currentTime >= item.maxSeconds) {
+        advance();
+        return;
+      }
+      const endAt = segmentEndSeconds(el);
+      if (endAt > 0 && endAt - el.currentTime <= PRELOAD_LEAD_SECONDS) {
+        preloadNext();
+      }
+    });
+    el.addEventListener("loadedmetadata", () => {
+      if (el === activeEl) scrubber.max = el.duration || 0;
+    });
+    el.addEventListener("play", updatePlayPauseIcon);
+    el.addEventListener("pause", updatePlayPauseIcon);
+  });
+
+  function updatePlayPauseIcon() {
+    playPauseBtn.textContent = activeEl.paused ? "▶" : "⏸";
+    playPauseBtn.setAttribute("aria-label", activeEl.paused ? "Play" : "Pause");
+  }
+
+  function updateNowPlaying() {
+    const entry = schedule[position];
+    if (!entry) { nowPlaying.textContent = ""; return; }
+    nowPlaying.textContent = poolLabel(entry.pool).toUpperCase();
+  }
+
+  function updateHud() {
+    if (!hud.classList.contains("show")) return;
+    ensureScheduled(position + 6);
+    const entry = schedule[position];
+    const item = currentStepConfig();
+    const cap = item && item.maxSeconds > 0 ? item.maxSeconds + "s cap" : "full clip";
+    const lines = ["now  " + poolLabel(entry.pool) + " · " + clipName(entry.src) + " (" + cap + ")"];
+    for (let i = 1; i <= 5; i++) {
+      const up = schedule[position + i];
+      if (up) lines.push("+" + i + "   " + poolLabel(up.pool) + " · " + clipName(up.src));
+    }
+    hud.textContent = lines.join("\n");
+  }
+  setInterval(updateHud, 1000);
+
+  // ---- controls bar, auto-hiding after 5s of no input ----
+  let dragging = false;
+  let hideTimer = null;
+
+  function showControls() {
+    scrubBar.classList.add("visible");
+    document.body.classList.add("controls-visible");
+    if (hideTimer) clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => {
+      if (dragging || cfgOverlay.classList.contains("show")) return;
+      scrubBar.classList.remove("visible");
+      document.body.classList.remove("controls-visible");
+    }, 5000);
+  }
+
+  ["mousemove", "mousedown", "touchstart", "keydown"].forEach(evt => {
+    document.addEventListener(evt, showControls, { passive: true });
+  });
+
+  const unmuteOnInteract = () => { muted = false; applyMuted(); };
+
+  playPauseBtn.addEventListener("click", () => {
+    unmuteOnInteract();
+    if (activeEl.paused) {
+      paused = false;
+      playActive();
+    } else {
+      paused = true;
+      activeEl.pause();
+    }
+    showControls();
+  });
+
+  // Coalesce rapid "input" events into at most one seek per animation frame —
+  // dragging fires many events per second, and issuing a range request for
+  // every one of them piles up seeks faster than the video (or the dev
+  // server) can service them.
+  let pendingSeek = null;
+
+  scrubber.addEventListener("pointerdown", () => {
+    dragging = true;
+    unmuteOnInteract();
+    showControls();
+  });
+  scrubber.addEventListener("input", () => {
+    if (pendingSeek !== null) return;
+    pendingSeek = requestAnimationFrame(() => {
+      activeEl.currentTime = scrubber.value;
+      pendingSeek = null;
+    });
+  });
+  scrubber.addEventListener("pointerup", () => {
+    dragging = false;
+    if (pendingSeek !== null) {
+      cancelAnimationFrame(pendingSeek);
+      pendingSeek = null;
+    }
+    activeEl.currentTime = scrubber.value;
+    showControls();
+  });
+
+  settingsToggle.addEventListener("click", () => {
+    unmuteOnInteract();
+    toggleConfig(true);
+    showControls();
+  });
+
+  // ---- live-operation keys, matching the terminal board ----
+  // f = fullscreen, d = debug HUD, ← / → = prev/next segment, c = config panel
+  document.addEventListener("keydown", (e) => {
+    // Don't hijack typing in the config panel's inputs and dropdowns.
+    const tag = e.target && e.target.tagName;
+    if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") {
+      if (e.key === "Escape") toggleConfig(false);
+      return;
+    }
+    if (e.key === "f") {
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+      else document.exitFullscreen().catch(() => {});
+    } else if (e.key === "d") {
+      hud.classList.toggle("show");
+      updateHud();
+    } else if (e.key === "ArrowRight") {
+      advance();
+    } else if (e.key === "ArrowLeft") {
+      goBack();
+    } else if (e.key === "c") {
+      toggleConfig();
+    } else if (e.key === "Escape" && cfgOverlay.classList.contains("show")) {
+      toggleConfig(false);
+    }
+  });
+  document.addEventListener("dblclick", (e) => {
+    if (cfgOverlay.contains(e.target) || scrubBar.contains(e.target)) return;
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+  });
+
+  // ================= CONFIG PANEL =================
+  function toggleConfig(force) {
+    const show = typeof force === "boolean" ? force : !cfgOverlay.classList.contains("show");
+    cfgOverlay.classList.toggle("show", show);
+    document.body.classList.toggle("cfg-open", show);
+    if (show) {
+      paused = true;
+      activeEl.pause();
+      renderConfig();
+    } else {
+      paused = false;
+      // If the current step was re-pointed at a different pool while the panel
+      // was open, pull a fresh clip so the edit is visible right away.
+      // Otherwise just resume where we left off.
+      const entry = schedule[position];
+      const item = entry ? cycle[entry.step] : null;
+      if (!entry || !item || item.pool !== entry.pool) {
+        // Step back one, then truncate — that returns the stale current clip to
+        // its deck along with the rest of the tail before re-deriving.
+        position--;
+        truncateSchedule();
+        advance();
+      } else {
+        playActive();
+        preloadNext();
+      }
+    }
+  }
+
+  let dragFromIndex = null;
+
+  function renderConfig() {
+    cfgList.innerHTML = "";
+    const currentStep = schedule[position] ? schedule[position].step : -1;
+
+    cycle.forEach((item, i) => {
+      const row = document.createElement("div");
+      row.className = "cfg-row" + (i === currentStep ? " playing" : "");
+      row.draggable = true;
+
+      const handle = document.createElement("span");
+      handle.className = "cfg-handle";
+      handle.textContent = "☰";
+
+      const select = document.createElement("select");
+      poolNames.forEach(name => {
+        const opt = document.createElement("option");
+        opt.value = name;
+        opt.textContent = poolLabel(name) + " (" + POOLS[name].length + ")";
+        if (name === item.pool) opt.selected = true;
+        select.appendChild(opt);
+      });
+      select.addEventListener("change", () => {
+        cycle[i].pool = select.value;
+        saveCycle();
+        truncateSchedule();
+        renderConfig();
+        setStatus("Step " + (i + 1) + " now draws from " + poolLabel(select.value) + ".");
+      });
+
+      const maxInput = document.createElement("input");
+      maxInput.type = "number";
+      maxInput.min = "0";
+      maxInput.value = item.maxSeconds;
+      maxInput.title = "Cut the clip short after this many seconds — 0 plays it in full";
+      maxInput.addEventListener("change", () => {
+        const v = Math.max(0, parseInt(maxInput.value, 10) || 0);
+        maxInput.value = v;
+        cycle[i].maxSeconds = v;
+        saveCycle();
+        setStatus(v > 0
+          ? "Step " + (i + 1) + " capped at " + v + "s."
+          : "Step " + (i + 1) + " plays the full clip.");
+      });
+
+      const secs = document.createElement("span");
+      secs.className = "cfg-secs";
+      secs.textContent = "sec (0 = full)";
+
+      const removeBtn = document.createElement("button");
+      removeBtn.className = "cfg-remove";
+      removeBtn.textContent = "✕";
+      removeBtn.title = "Remove from the loop";
+      removeBtn.addEventListener("click", () => {
+        if (cycle.length <= 1) { setStatus("Can't remove the last step."); return; }
+        cycle.splice(i, 1);
+        saveCycle();
+        truncateSchedule();
+        renderConfig();
+        setStatus("Removed step.");
+      });
+
+      row.appendChild(handle);
+      row.appendChild(select);
+      row.appendChild(maxInput);
+      row.appendChild(secs);
+      row.appendChild(removeBtn);
+
+      row.addEventListener("dragstart", () => {
+        dragFromIndex = i;
+        row.classList.add("dragging");
+      });
+      row.addEventListener("dragend", () => {
+        row.classList.remove("dragging");
+        Array.from(cfgList.children).forEach(r => r.classList.remove("drop-target"));
+      });
+      row.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        row.classList.add("drop-target");
+      });
+      row.addEventListener("dragleave", () => row.classList.remove("drop-target"));
+      row.addEventListener("drop", (e) => {
+        e.preventDefault();
+        row.classList.remove("drop-target");
+        if (dragFromIndex === null || dragFromIndex === i) return;
+        const moved = cycle.splice(dragFromIndex, 1)[0];
+        cycle.splice(i, 0, moved);
+        // keep the "currently playing" pointer attached to the same step
+        const entry = schedule[position];
+        if (entry) {
+          if (dragFromIndex === entry.step) entry.step = i;
+          else if (dragFromIndex < entry.step && i >= entry.step) entry.step--;
+          else if (dragFromIndex > entry.step && i <= entry.step) entry.step++;
+        }
+        dragFromIndex = null;
+        saveCycle();
+        truncateSchedule();
+        renderConfig();
+        setStatus("Reordered the loop.");
+      });
+
+      cfgList.appendChild(row);
+    });
+  }
+
+  function setStatus(msg) {
+    cfgStatus.textContent = msg;
+  }
+
+  poolNames.forEach(name => {
+    const opt = document.createElement("option");
+    opt.value = name;
+    opt.textContent = poolLabel(name);
+    cfgAddSelect.appendChild(opt);
+  });
+
+  document.getElementById("cfgAddBtn").addEventListener("click", () => {
+    cycle.push({ pool: cfgAddSelect.value, maxSeconds: 0 });
+    saveCycle();
+    truncateSchedule();
+    renderConfig();
+    setStatus("Added " + poolLabel(cfgAddSelect.value) + ".");
+  });
+
+  document.getElementById("cfgShuffleBtn").addEventListener("click", () => {
+    shuffleAllPools();
+    truncateSchedule();
+    preloadNext();
+    updateHud();
+    setStatus("Reshuffled — everything after the current clip is a new running order.");
+  });
+
+  document.getElementById("cfgClose").addEventListener("click", () => toggleConfig(false));
+  cfgOverlay.addEventListener("click", (e) => {
+    if (e.target === cfgOverlay) toggleConfig(false);
+  });
+
+  document.getElementById("cfgResetBtn").addEventListener("click", () => {
+    localStorage.removeItem(STORAGE_KEY);
+    cycle = cloneCycle(window.ZEENAIR_LONDON_CYCLE);
+    truncateSchedule();
+    renderConfig();
+    setStatus("Reset to london-playlist.js defaults.");
+  });
+
+  document.getElementById("cfgCopyBtn").addEventListener("click", () => {
+    const width = Math.max.apply(null, cycle.map(c => c.pool.length));
+    const lines = cycle.map(c =>
+      '  { pool: "' + c.pool + '",' + " ".repeat(width - c.pool.length) + " maxSeconds: " + c.maxSeconds + " },"
+    ).join("\n");
+    const text = "window.ZEENAIR_LONDON_CYCLE = [\n" + lines + "\n];";
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(
+        () => setStatus("Copied — paste into london-playlist.js to make it permanent."),
+        () => fallbackCopy(text)
+      );
+    } else {
+      fallbackCopy(text);
+    }
+  });
+
+  function fallbackCopy(text) {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand("copy"); setStatus("Copied — paste into london-playlist.js to make it permanent."); }
+    catch (e) { setStatus("Copy failed — the snippet is in the console."); console.log(text); }
+    document.body.removeChild(ta);
+  }
+
+  // ---- go ----
+  applyMuted();
+  advance();
+  showControls();
+})();
+</script>
+
 </body>
 </html>
