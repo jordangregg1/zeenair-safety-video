@@ -51,6 +51,29 @@
     #play-pause:hover {
       background: rgba(255, 255, 255, 0.3);
     }
+    #settings-toggle {
+      flex: none;
+      width: 36px;
+      height: 36px;
+      border: none;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.15);
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      line-height: 1;
+    }
+    #settings-toggle:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+    #settings-toggle svg {
+      width: 18px;
+      height: 18px;
+      fill: currentColor;
+    }
     #config-overlay {
       position: fixed;
       inset: 0;
@@ -181,6 +204,11 @@
   <div id="scrub-bar">
     <button id="play-pause" type="button" aria-label="Pause">⏸</button>
     <input type="range" id="scrubber" min="0" max="100" step="0.01" value="0">
+    <button id="settings-toggle" type="button" aria-label="Settings">
+      <svg viewBox="0 0 24 24">
+        <path d="M19.14 12.94c.04-.31.06-.62.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.61-.22l-2.39.96a7.4 7.4 0 0 0-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96a.5.5 0 0 0-.61.22L2.62 8.84a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.07.63-.07.94s.02.63.06.94L2.74 14.52a.5.5 0 0 0-.12.64l1.92 3.32c.14.24.42.32.61.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.26.42.5.42h3.84c.24 0 .45-.18.5-.42l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.24.1.47 0 .61-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58ZM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Z"/>
+      </svg>
+    </button>
   </div>
   <div id="reboot-timer">
     <svg viewBox="0 0 30 30">
@@ -191,7 +219,7 @@
   </div>
   <div id="config-overlay">
     <div id="config-panel">
-      <h2>Configuration</h2>
+      <h2>Settings</h2>
       <label for="loop-delay-input">Loop delay (seconds)</label>
       <div id="loop-delay-row">
         <input type="number" id="loop-delay-input" min="0" step="1" value="30">
@@ -287,7 +315,6 @@
     // --- Configuration menu (loop delay) ---
     const LOOP_DELAY_KEY = 'zeenair-loop-delay-seconds';
     const DEFAULT_LOOP_DELAY = 30;
-    const LONG_PRESS_MS = 3000;
 
     const REBOOT_TIMER_ENABLED_KEY = 'zeenair-reboot-timer-enabled';
 
@@ -295,6 +322,7 @@
     const configClose = document.getElementById('config-close');
     const loopDelayInput = document.getElementById('loop-delay-input');
     const rebootTimerToggle = document.getElementById('reboot-timer-toggle');
+    const settingsToggle = document.getElementById('settings-toggle');
 
     const getLoopDelay = () => {
       const stored = parseFloat(localStorage.getItem(LOOP_DELAY_KEY));
@@ -341,27 +369,12 @@
 
     configClose.addEventListener('click', closeConfig);
 
-    // Long-press (3s) in the top-right quadrant of the video frame opens config, touch only.
-    let longPressTimer = null;
-
-    document.addEventListener('touchstart', (e) => {
-      if (configOverlay.classList.contains('visible')) return;
-      const touch = e.touches[0];
-      if (!touch) return;
-      const inTopRightQuadrant = touch.clientX > window.innerWidth / 2 && touch.clientY < window.innerHeight / 2;
-      if (!inTopRightQuadrant) return;
-      longPressTimer = setTimeout(() => {
-        openConfig();
-      }, LONG_PRESS_MS);
-    }, { passive: true });
-
-    ['touchend', 'touchmove', 'touchcancel'].forEach(evt => {
-      document.addEventListener(evt, () => {
-        if (longPressTimer) {
-          clearTimeout(longPressTimer);
-          longPressTimer = null;
-        }
-      }, { passive: true });
+    // Gear icon in the playback controls bar opens config; it fades with
+    // the rest of the controls when idle, and reappears with them on touch.
+    settingsToggle.addEventListener('click', () => {
+      unmuteOnInteract();
+      openConfig();
+      showControls();
     });
 
     // Loop with a configurable delay instead of looping instantly.
