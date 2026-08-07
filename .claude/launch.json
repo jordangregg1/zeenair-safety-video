@@ -3,10 +3,10 @@
   "configurations": [
     {
       "name": "static-server",
-      "runtimeExecutable": "/opt/homebrew/bin/python3",
-      "runtimeArgs": ["-m", "http.server", "8124"],
+      "runtimeExecutable": "/bin/sh",
+      "runtimeArgs": ["-c", "exec /opt/homebrew/bin/python3 .claude/range_server.py \"$PORT\" ."],
       "port": 8124,
-      "autoPort": false
+      "autoPort": true
     }
   ]
 }

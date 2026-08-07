@@ -51,15 +51,159 @@
     #play-pause:hover {
       background: rgba(255, 255, 255, 0.3);
     }
+    #config-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.55);
+    }
+    #config-overlay.visible {
+      display: flex;
+    }
+    #config-panel {
+      background: #1c1c1e;
+      color: #fff;
+      border-radius: 12px;
+      padding: 24px 28px;
+      width: min(320px, 80vw);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    }
+    #config-panel h2 {
+      margin: 0 0 16px;
+      font-size: 18px;
+      font-weight: 600;
+    }
+    #config-panel label {
+      display: block;
+      font-size: 13px;
+      color: #ccc;
+      margin-bottom: 6px;
+    }
+    #loop-delay-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    #loop-delay-input {
+      flex: 1;
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid #444;
+      background: #2c2c2e;
+      color: #fff;
+      font-size: 14px;
+    }
+    .config-toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 20px;
+      font-size: 13px;
+      color: #ccc;
+      cursor: pointer;
+    }
+    .config-toggle-row input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+    #config-buttons {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+    #config-buttons button {
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    #config-close {
+      background: rgba(255, 255, 255, 0.15);
+      color: #fff;
+    }
+    #config-close:hover {
+      background: rgba(255, 255, 255, 0.25);
+    }
+    #reboot-timer {
+      position: fixed;
+      top: 14px;
+      right: 14px;
+      z-index: 15;
+      width: 30px;
+      height: 30px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+    }
+    #reboot-timer.visible {
+      opacity: 0.55;
+    }
+    #reboot-timer svg {
+      width: 100%;
+      height: 100%;
+      transform: rotate(-90deg);
+    }
+    #reboot-timer circle {
+      fill: none;
+      stroke-width: 2;
+    }
+    #reboot-timer-track {
+      stroke: rgba(255, 255, 255, 0.25);
+    }
+    #reboot-timer-progress {
+      stroke: #fff;
+      stroke-linecap: round;
+    }
+    #reboot-timer-text {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 10px;
+      font-weight: 500;
+    }
   </style>
 </head>
 <body>
-  <video id="bg-video" autoplay loop playsinline style="width:100vw;height:100vh;object-fit:cover;">
-    <source src="Zeenair Flight Safety Video.mov">
+  <video id="bg-video" autoplay playsinline style="width:100vw;height:100vh;object-fit:cover;">
+    <source src="Zeenair Flight Safety Video - trimmed.mov">
   </video>
   <div id="scrub-bar">
     <button id="play-pause" type="button" aria-label="Pause">⏸</button>
     <input type="range" id="scrubber" min="0" max="100" step="0.01" value="0">
+  </div>
+  <div id="reboot-timer">
+    <svg viewBox="0 0 30 30">
+      <circle id="reboot-timer-track" cx="15" cy="15" r="13"></circle>
+      <circle id="reboot-timer-progress" cx="15" cy="15" r="13"></circle>
+    </svg>
+    <div id="reboot-timer-text"></div>
+  </div>
+  <div id="config-overlay">
+    <div id="config-panel">
+      <h2>Configuration</h2>
+      <label for="loop-delay-input">Loop delay (seconds)</label>
+      <div id="loop-delay-row">
+        <input type="number" id="loop-delay-input" min="0" step="1" value="30">
+      </div>
+      <label class="config-toggle-row" for="reboot-timer-toggle">
+        <input type="checkbox" id="reboot-timer-toggle">
+        <span>Show reboot countdown timer</span>
+      </label>
+      <div id="config-buttons">
+        <button id="config-close" type="button">Close</button>
+      </div>
+    </div>
   </div>
   <script src="shared/back-to-menu.js"></script>
   <script>
@@ -138,6 +282,145 @@
     scrubber.addEventListener('pointerup', () => {
       dragging = false;
       showControls();
+    });
+
+    // --- Configuration menu (loop delay) ---
+    const LOOP_DELAY_KEY = 'zeenair-loop-delay-seconds';
+    const DEFAULT_LOOP_DELAY = 30;
+    const LONG_PRESS_MS = 3000;
+
+    const REBOOT_TIMER_ENABLED_KEY = 'zeenair-reboot-timer-enabled';
+
+    const configOverlay = document.getElementById('config-overlay');
+    const configClose = document.getElementById('config-close');
+    const loopDelayInput = document.getElementById('loop-delay-input');
+    const rebootTimerToggle = document.getElementById('reboot-timer-toggle');
+
+    const getLoopDelay = () => {
+      const stored = parseFloat(localStorage.getItem(LOOP_DELAY_KEY));
+      return Number.isFinite(stored) && stored >= 0 ? stored : DEFAULT_LOOP_DELAY;
+    };
+
+    const setLoopDelay = (seconds) => {
+      localStorage.setItem(LOOP_DELAY_KEY, String(seconds));
+    };
+
+    const isRebootTimerEnabled = () => localStorage.getItem(REBOOT_TIMER_ENABLED_KEY) !== 'false';
+
+    const setRebootTimerEnabled = (enabled) => {
+      localStorage.setItem(REBOOT_TIMER_ENABLED_KEY, String(enabled));
+    };
+
+    loopDelayInput.value = getLoopDelay();
+    rebootTimerToggle.checked = isRebootTimerEnabled();
+
+    const openConfig = () => {
+      loopDelayInput.value = getLoopDelay();
+      rebootTimerToggle.checked = isRebootTimerEnabled();
+      configOverlay.classList.add('visible');
+    };
+
+    const closeConfig = () => {
+      const parsed = parseFloat(loopDelayInput.value);
+      if (Number.isFinite(parsed) && parsed >= 0) {
+        setLoopDelay(parsed);
+      }
+      setRebootTimerEnabled(rebootTimerToggle.checked);
+      configOverlay.classList.remove('visible');
+    };
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'c' || e.key === 'C') {
+        if (configOverlay.classList.contains('visible')) {
+          closeConfig();
+        } else {
+          openConfig();
+        }
+      }
+    });
+
+    configClose.addEventListener('click', closeConfig);
+
+    // Long-press (3s) in the top-right quadrant of the video frame opens config, touch only.
+    let longPressTimer = null;
+
+    document.addEventListener('touchstart', (e) => {
+      if (configOverlay.classList.contains('visible')) return;
+      const touch = e.touches[0];
+      if (!touch) return;
+      const inTopRightQuadrant = touch.clientX > window.innerWidth / 2 && touch.clientY < window.innerHeight / 2;
+      if (!inTopRightQuadrant) return;
+      longPressTimer = setTimeout(() => {
+        openConfig();
+      }, LONG_PRESS_MS);
+    }, { passive: true });
+
+    ['touchend', 'touchmove', 'touchcancel'].forEach(evt => {
+      document.addEventListener(evt, () => {
+        if (longPressTimer) {
+          clearTimeout(longPressTimer);
+          longPressTimer = null;
+        }
+      }, { passive: true });
+    });
+
+    // Loop with a configurable delay instead of looping instantly.
+    let loopTimer = null;
+
+    const rebootTimerEl = document.getElementById('reboot-timer');
+    const rebootTimerProgress = document.getElementById('reboot-timer-progress');
+    const rebootTimerText = document.getElementById('reboot-timer-text');
+    const REBOOT_RING_RADIUS = 13;
+    const REBOOT_RING_CIRCUMFERENCE = 2 * Math.PI * REBOOT_RING_RADIUS;
+    rebootTimerProgress.style.strokeDasharray = String(REBOOT_RING_CIRCUMFERENCE);
+    let rebootAnimFrame = null;
+
+    // The countdown itself always runs while waiting to re-loop; only its
+    // visibility is gated by the "enabled" setting, re-checked every frame
+    // so toggling the checkbox takes effect immediately, live.
+    const stopRebootTimer = () => {
+      if (rebootAnimFrame) {
+        cancelAnimationFrame(rebootAnimFrame);
+        rebootAnimFrame = null;
+      }
+      rebootTimerEl.classList.remove('visible');
+    };
+
+    const startRebootTimer = (delaySeconds) => {
+      const startedAt = performance.now();
+      const durationMs = delaySeconds * 1000;
+
+      const tick = (now) => {
+        rebootTimerEl.classList.toggle('visible', isRebootTimerEnabled());
+
+        const elapsed = now - startedAt;
+        const remainingMs = Math.max(0, durationMs - elapsed);
+        const fraction = durationMs > 0 ? elapsed / durationMs : 1;
+        rebootTimerProgress.style.strokeDashoffset = String(REBOOT_RING_CIRCUMFERENCE * Math.min(1, fraction));
+        rebootTimerText.textContent = String(Math.ceil(remainingMs / 1000));
+        if (remainingMs > 0) {
+          rebootAnimFrame = requestAnimationFrame(tick);
+        } else {
+          rebootTimerEl.classList.remove('visible');
+        }
+      };
+      rebootAnimFrame = requestAnimationFrame(tick);
+    };
+
+    video.addEventListener('ended', () => {
+      const delay = getLoopDelay();
+      if (loopTimer) clearTimeout(loopTimer);
+      if (delay > 0) startRebootTimer(delay);
+      loopTimer = setTimeout(() => {
+        video.currentTime = 0;
+        video.play();
+      }, delay * 1000);
+    });
+
+    video.addEventListener('play', stopRebootTimer);
+
+    rebootTimerToggle.addEventListener('change', () => {
+      setRebootTimerEnabled(rebootTimerToggle.checked);
     });
   </script>
 </body>
