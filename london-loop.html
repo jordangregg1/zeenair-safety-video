@@ -35,6 +35,15 @@
     .stage-video.mirrored{
       transform:scaleX(-1);
     }
+    /* Big Ben clips are framed wider than we want on screen — push in with a
+       plain CSS scale (cropped by body's overflow:hidden) rather than
+       re-encoding the source files. Uniform scale keeps aspect ratio intact. */
+    .stage-video.zoomed{
+      transform:scale(1.35);
+    }
+    .stage-video.zoomed.mirrored{
+      transform:scale(-1.35,1.35);
+    }
 
     #hud{
       position:fixed;
@@ -237,6 +246,10 @@
         <input type="checkbox" id="cfgMirrorToggle">
         Mirror content
       </label>
+      <label class="cfg-check">
+        <input type="checkbox" id="cfgZoomToggle">
+        Big Ben Zoom
+      </label>
       <div class="spacer"></div>
       <button id="cfgCopyBtn">Copy as code</button>
       <button id="cfgResetBtn">Reset to file defaults</button>
@@ -251,6 +264,7 @@
 (function () {
   const STORAGE_KEY = "zeenair_london_cycle_override_v1";
   const MIRROR_KEY = "zeenair_london_mirror_v1";
+  const ZOOM_KEY = "zeenair_london_bigben_zoom_v1";
   // Add new pools to london-playlist.js, then label them here so they show up
   // in the config panel's step dropdowns.
   const POOL_LABELS = {
@@ -275,6 +289,7 @@
   const cfgAddSelect = document.getElementById("cfgAddSelect");
   const cfgStatus = document.getElementById("cfgStatus");
   const cfgMirrorToggle = document.getElementById("cfgMirrorToggle");
+  const cfgZoomToggle = document.getElementById("cfgZoomToggle");
 
   // Projected onto the back of a screen, so mirror by default — anything
   // other than the literal string "false" counts as enabled.
@@ -290,6 +305,17 @@
     localStorage.setItem(MIRROR_KEY, mirrored ? "true" : "false");
     applyMirrored();
     setStatus(mirrored ? "Mirroring content for rear projection." : "Mirroring off.");
+  });
+
+  // On by default — anything other than the literal string "false" counts as enabled.
+  let bigBenZoom = localStorage.getItem(ZOOM_KEY) !== "false";
+  cfgZoomToggle.checked = bigBenZoom;
+  cfgZoomToggle.addEventListener("change", () => {
+    bigBenZoom = cfgZoomToggle.checked;
+    localStorage.setItem(ZOOM_KEY, bigBenZoom ? "true" : "false");
+    const entry = schedule[position];
+    activeEl.classList.toggle("zoomed", bigBenZoom && !!entry && entry.pool === "bigben");
+    setStatus(bigBenZoom ? "Big Ben zoom enabled." : "Big Ben zoom disabled.");
   });
 
   function poolLabel(pool) {
@@ -471,6 +497,7 @@
     const outgoing = activeEl;
 
     incoming.classList.add("active");
+    incoming.classList.toggle("zoomed", bigBenZoom && entry.pool === "bigben");
     outgoing.classList.remove("active");
     activeEl = incoming;
     idleEl = outgoing;
